@@ -1,0 +1,3 @@
+# Give executable permissions
+scripts/*.sh eol=lf chmod=+x
+
