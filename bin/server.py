@@ -1373,7 +1373,7 @@ if __name__ == '__main__':
 
 		# connect to database
 		if tornado.options.options.backend == 'file':
-			app.settings['db'] = backend.FileBackend(tornado.options.options.url_file)
+			app.settings['db'] = backend.FileBackend(os.path.join(env.BASE_DIR['workspace'], tornado.options.options.url_file))
 
 		elif tornado.options.options.backend == 'mongo':
 			app.settings['db'] = backend.MongoBackend(tornado.options.options.url_mongo)
