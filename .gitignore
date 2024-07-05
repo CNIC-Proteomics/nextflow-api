@@ -1,0 +1,29 @@
+
+# client is hidden
+client
+Dockerfile
+README_original.md
+helm
+helm/.helmignore
+helm/.nextflow.log
+helm/.sops.yaml
+helm/templates/secret.yaml
+
+# workspaces
+_models
+_trace
+_workflows
+
+# temporal and data files
+.ipynb_checkpoints
+*.json
+.nextflow*
+*.pkl
+*.pyc
+
+# original code
+README_original.md
+requirements.txt
+nextflow-api-master.zip
+
+
