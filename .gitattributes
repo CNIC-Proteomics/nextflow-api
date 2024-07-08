@@ -1,3 +1,0 @@
-# Give executable permissions
-scripts/startup-local.sh eol=lf chmod=+x
-
