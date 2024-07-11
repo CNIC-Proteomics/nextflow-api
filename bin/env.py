@@ -34,6 +34,8 @@ CORS_HOSTS = [
 	f"http://localhost:{PORT_APP}",
 	f"http://{get_ipv4_address()}:{PORT_APP}",
 ]
+print( "CORS ")
+print(CORS_HOSTS)
 
 # validate environment settings
 if NXF_EXECUTOR == 'k8s' and PVC_NAME is None:
