@@ -5,6 +5,7 @@ import socket
 NXF_EXECUTOR = os.environ.get('NXF_EXECUTOR', default='local')
 NXF_CONF = os.environ.get('NXF_CONF')
 PVC_NAME = os.environ.get('PVC_NAME')
+PORT_CORE = int(os.environ.get('PORT_CORE', 8080))
 
 # define working directories
 BASE_DIRS = {
