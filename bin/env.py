@@ -1,4 +1,5 @@
 import os
+import socket
 
 # load settings from environment variables
 NXF_EXECUTOR = os.environ.get('NXF_EXECUTOR', default='local')
@@ -19,10 +20,19 @@ TRACES_DIR = os.path.join(BASE_DIR['workspace'], '_traces')
 MODELS_DIR = os.path.join(BASE_DIR['workspace'], '_models')
 OUTPUTS_DIR = ''
 
-# Frontend: Access-Control-Allow-Origin 
+# Frontend: Access-Control-Allow-Origin
+PORT_APP = int(os.environ.get('PORT_APP', 3000))
+
+# get the IP address
+def get_ipv4_address():
+	hostname = socket.gethostname()
+	ip_address = socket.gethostbyname(hostname)
+	return ip_address
+
+# create HOST list for the cross-reference
 CORS_HOSTS = [
-	'http://localhost:3000',
-	'http://10.142.33.54:3000'
+	f"http://localhost:{PORT_APP}",
+	f"http://{get_ipv4_address()}:{PORT_APP}",
 ]
 
 # validate environment settings
