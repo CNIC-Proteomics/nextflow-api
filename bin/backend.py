@@ -58,6 +58,13 @@ class Backend():
 		raise NotImplementedError()
 
 
+# /*
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# 	FILE BACKEND
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#		Class that saves the dataset, workflows and tasks information into a file
+# ----------------------------------------------------------------------------------------
+# */
 
 class FileBackend(Backend):
 
@@ -366,6 +373,15 @@ class FileBackend(Backend):
 
 
 
+
+# /*
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# 	MONGODB BACKEND
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#		Class that saves the dataset, workflows and tasks information into mongoDB database
+# ----------------------------------------------------------------------------------------
+# */
+
 class MongoBackend(Backend):
 	def __init__(self, url):
 		self._url = url
@@ -375,6 +391,31 @@ class MongoBackend(Backend):
 		self._client = motor.motor_tornado.MotorClient(self._url)
 		self._db = self._client['nextflow_api']
 
+	# ----------------
+	# Dataset functions
+	# ----------------
+	async def dataset_query(self, page, page_size):
+		return await self._db.datasets \
+			.find() \
+			.sort('date_created', pymongo.DESCENDING) \
+			.skip(page * page_size) \
+			.to_list(length=page_size)
+
+	async def dataset_create(self, dataset):
+		return await self._db.datasets.insert_one(dataset)
+
+	async def dataset_get(self, id):
+		return await self._db.datasets.find_one({ '_id': id })
+
+	async def dataset_update(self, id, dataset):
+		return await self._db.datasets.replace_one({ '_id': id }, dataset)
+
+	async def dataset_delete(self, id):
+		return await self._db.datasets.delete_one({ '_id': id })
+
+	# ----------------
+	# Workflow functions
+	# ----------------
 	async def workflow_query(self, page, page_size):
 		return await self._db.workflows \
 			.find() \
@@ -394,6 +435,9 @@ class MongoBackend(Backend):
 	async def workflow_delete(self, id):
 		return await self._db.workflows.delete_one({ '_id': id })
 
+	# ----------------
+	# Task functions
+	# ----------------
 	async def task_query(self, page, page_size):
 		return await self._db.tasks \
 			.find({}, { '_id': 1, 'runName': 1, 'utcTime': 1, 'event': 1 }) \
