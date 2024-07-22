@@ -19,12 +19,22 @@ import tornado.web
 import zipfile
 import io
 import mimetypes
+# login
+import bcrypt
+import jwt
+import datetime
 
 import backend
 import env
 # import model as Model
 import visualizer as Visualizer
 import workflow as Workflow
+
+
+JWT_SECRET = 'your_jwt_secret'
+JWT_ALGORITHM = 'HS256'
+JWT_EXP_DELTA_SECONDS = 3600
+
 
 
 #-------------------------------------
@@ -57,9 +67,6 @@ def build_tree(path, relpath_start='', key_prefix=''):
 		# exclude hidden files and directories
 		subdirs[:] = [d for d in subdirs if not d.startswith('.')]
 		filenames = [f for f in filenames if not f.startswith('.')]
-
-        # compute the relative path
-		
 
 		# process directories
 		for subdir in subdirs:
@@ -102,6 +109,22 @@ def build_tree(path, relpath_start='', key_prefix=''):
 
 	return tree
 
+# Decode token
+def jwt_decode(token):
+	try:
+		payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+		return payload
+	except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+		raise tornado.web.HTTPError(401, 'Invalid token')
+
+def role_required(role):
+	def decorator(method):
+		def wrapper(self, *args, **kwargs):
+			if self.current_user['role'] != role:
+				raise tornado.web.HTTPError(403, 'Forbidden')
+			return method(self, *args, **kwargs)
+		return wrapper
+	return decorator
 
 def message(status, message):
 	return {
@@ -128,19 +151,93 @@ class CORSMixin:
 			self.finish()
 
 
+#-------------------------------------
+# LOGIN Classes
+#-------------------------------------
+
+class UserHandler(CORSMixin, tornado.web.RequestHandler):
+
+	async def post(self):
+		try:
+			username = self.get_body_argument('username')
+			password = self.get_body_argument('password')
+		except tornado.web.MissingArgumentError:
+			raise tornado.web.HTTPError(400, 'Missing username or password')
+
+		hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+		user = {
+			'username': username,
+			'password': hashed_password,
+			'role': 'guest' # default role
+		}
+
+		db = self.settings['db']
+		await db.user_create(user)
+
+		self.set_status(201)
+		self.write(message(201, 'User created'))
+
+class LoginHandler(CORSMixin, tornado.web.RequestHandler):
+
+	async def post(self):
+		try:
+			username = self.get_body_argument('username')
+			password = self.get_body_argument('password')
+		except tornado.web.MissingArgumentError:
+			raise tornado.web.HTTPError(400, 'Missing username or password')
+
+		db = self.settings['db']
+		user = await db.user_get(username)
+
+		if user and bcrypt.checkpw(password.encode('utf-8'), user['password']):
+			payload = {
+				'user_id': user['_id'],
+				'username': user['username'],
+				'role': user['role'],
+				'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(seconds=JWT_EXP_DELTA_SECONDS)
+			}
+			jwt_token = jwt.encode(payload, JWT_SECRET, JWT_ALGORITHM)
+			self.set_status(200)
+			self.write({'token': jwt_token})
+		else:
+			raise tornado.web.HTTPError(401, 'Invalid username or password')
+
+class AuthHandler(CORSMixin, tornado.web.RequestHandler):
+		
+	def prepare(self):
+		if 'Authorization' not in self.request.headers:
+			raise tornado.web.HTTPError(401, 'Missing authorization header')
+		
+		token = self.request.headers['Authorization'].split(' ')[-1]
+		payload = jwt_decode(token)
+		
+		self.current_user = payload
+
 
 #-------------------------------------
 # DATASETS Classes
 #-------------------------------------
 
-class DatasetQueryHandler(CORSMixin, tornado.web.RequestHandler):
+class DatasetQueryHandler(CORSMixin, AuthHandler, tornado.web.RequestHandler):
 
+	# async def get(self):
+	# 	page = int(self.get_query_argument('page', 0))
+	# 	page_size = int(self.get_query_argument('page_size', 100))
+
+	# 	db = self.settings['db']
+	# 	datasets = await db.dataset_query(page, page_size)
+
+	# 	self.set_status(200)
+	# 	self.set_header('content-type', 'application/json')
+	# 	self.write(tornado.escape.json_encode(datasets))
+
+	@role_required('user')
 	async def get(self):
 		page = int(self.get_query_argument('page', 0))
 		page_size = int(self.get_query_argument('page_size', 100))
 
 		db = self.settings['db']
-		datasets = await db.dataset_query(page, page_size)
+		datasets = await db.dataset_query(self.current_user['user_id'], page, page_size)
 
 		self.set_status(200)
 		self.set_header('content-type', 'application/json')
@@ -148,7 +245,7 @@ class DatasetQueryHandler(CORSMixin, tornado.web.RequestHandler):
 
 
 
-class DatasetCreateHandler(CORSMixin, tornado.web.RequestHandler):
+class DatasetCreateHandler(CORSMixin, AuthHandler, tornado.web.RequestHandler):
 
 	REQUIRED_KEYS = set([
 		'experiment'
@@ -160,6 +257,7 @@ class DatasetCreateHandler(CORSMixin, tornado.web.RequestHandler):
 		'n_files': 0
 	}
 
+	@role_required('user')
 	def get(self):
 		dataset = {**self.DEFAULTS, **{ '_id': '0' }}
 
@@ -1331,6 +1429,9 @@ if __name__ == '__main__':
 
 	# initialize api endpoints
 	app = tornado.web.Application([
+		(r'/api/register', UserHandler),
+		(r'/api/login', LoginHandler),
+
 		(r'/api/datasets', DatasetQueryHandler),
 		(r'/api/datasets/0', DatasetCreateHandler),
 		(r'/api/datasets/([a-zA-Z0-9-]+)', DatasetEditHandler),

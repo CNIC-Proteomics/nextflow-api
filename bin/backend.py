@@ -12,6 +12,14 @@ class Backend():
 	def initialize(self):
 		pass
 
+
+	# login functions -----
+	async def user_create(self, user):
+		raise NotImplementedError()
+
+	async def user_get(self, username):
+		raise NotImplementedError()
+
 	# dataset functions -----
 	async def dataset_query(self, page, page_size):
 		raise NotImplementedError()
@@ -81,6 +89,7 @@ class FileBackend(Backend):
 		# initialize empty database if pickle file doesn't exist
 		except FileNotFoundError:
 			self._db = {
+				'users': [],
 				'datasets': [],
 				'workflows': [],
 				'outputs': [],
@@ -94,22 +103,66 @@ class FileBackend(Backend):
 	def save(self):
 		pickle.dump(self._db, open(self._url, 'wb'))
 
+
+	# ----------------
+	# Login functions
+	# ----------------
+	async def user_create(self, user):
+		self._lock.acquire()
+		self.load()
+
+		# append user to list of users
+		self._db['users'].append(user)
+
+		self.save()
+		self._lock.release()
+
+	async def user_get(self, username):
+		self._lock.acquire()
+		self.load()
+
+		user = next((u for u in self._db['users'] if u['username'] == username), None)
+
+		self._lock.release()
+
+		# raise error if user wasn't found
+		if user == None:
+			raise IndexError('User was not found')
+
+		return user
+
+
 	# ----------------
 	# Dataset functions
 	# ----------------
-	async def dataset_query(self, page, page_size):
+	# async def dataset_query(self, page, page_size):
+	# 	self._lock.acquire()
+	# 	self.load()
+
+	# 	# sort datasets by date_created in descending order
+	# 	self._db['datasets'].sort(key=lambda w: w['date_created'], reverse=True)
+
+	# 	# return the specified page of datasets
+	# 	datasets = self._db['datasets'][(page * page_size) : ((page + 1) * page_size)]
+
+	# 	self._lock.release()
+
+	# 	return datasets
+	async def dataset_query(self, user_id, page, page_size):
 		self._lock.acquire()
 		self.load()
 
 		# sort datasets by date_created in descending order
-		self._db['datasets'].sort(key=lambda w: w['date_created'], reverse=True)
+		datasets = [d for d in self._db['datasets'] if d['created_by'] == user_id]
+		datasets.sort(key=lambda w: w['date_created'], reverse=True)
 
 		# return the specified page of datasets
-		datasets = self._db['datasets'][(page * page_size) : ((page + 1) * page_size)]
+		datasets = datasets[(page * page_size):((page + 1) * page_size)]
 
 		self._lock.release()
 
 		return datasets
+
 
 	async def dataset_create(self, dataset):
 		self._lock.acquire()
