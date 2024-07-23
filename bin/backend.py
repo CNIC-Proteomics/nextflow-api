@@ -13,11 +13,17 @@ class Backend():
 		pass
 
 
-	# login functions -----
+	# user functions -----
 	async def user_create(self, user):
 		raise NotImplementedError()
 
 	async def user_get(self, username):
+		raise NotImplementedError()
+
+	async def user_update(self, id, user):
+		raise NotImplementedError()
+
+	async def user_delete(self, id):
 		raise NotImplementedError()
 
 	# dataset functions -----
@@ -105,24 +111,36 @@ class FileBackend(Backend):
 
 
 	# ----------------
-	# Login functions
+	# User functions
 	# ----------------
 	async def user_create(self, user):
 		self._lock.acquire()
 		self.load()
+		
+		# get username
+		username = user['username']
 
-		# append user to list of users
-		self._db['users'].append(user)
+		# check if username already exists
+		found = next((True for u in self._db['users'] if u['username'] == username), False)
 
-		self.save()
+		# append user to list of users if user was not found
+		if not found:			
+			self._db['users'].append(user)
+			self.save()
+		
 		self._lock.release()
+
+		# raise error if user was found
+		if found:
+			raise IndexError('User already exists')
 
 	async def user_get(self, username):
 		self._lock.acquire()
 		self.load()
 
+		# get user
 		user = next((u for u in self._db['users'] if u['username'] == username), None)
-
+		
 		self._lock.release()
 
 		# raise error if user wasn't found
@@ -130,6 +148,48 @@ class FileBackend(Backend):
 			raise IndexError('User was not found')
 
 		return user
+
+	async def user_update(self, id, user):
+		self._lock.acquire()
+		self.load()
+
+		# search for user by id and update it
+		found = False
+
+		for i, d in enumerate(self._db['users']):
+			if d['_id'] == id:
+				# update user
+				self._db['users'][i] = user
+				found = True
+				break
+
+		self.save()
+		self._lock.release()
+
+		# raise error if user wasn't found
+		if not found:
+			raise IndexError('User was not found')
+
+	async def user_delete(self, id):
+		self._lock.acquire()
+		self.load()
+
+		# search for user by id and delete it
+		found = False
+
+		for i, d in enumerate(self._db['users']):
+			if d['_id'] == id:
+				# delete user
+				self._db['users'].pop(i)
+				found = True
+				break
+
+		self.save()
+		self._lock.release()
+
+		# raise error if user wasn't found
+		if not found:
+			raise IndexError('User was not found')
 
 
 	# ----------------
@@ -153,7 +213,7 @@ class FileBackend(Backend):
 		self.load()
 
 		# sort datasets by date_created in descending order
-		datasets = [d for d in self._db['datasets'] if d['created_by'] == user_id]
+		datasets = [d for d in self._db['datasets'] if d['user_id'] == user_id]
 		datasets.sort(key=lambda w: w['date_created'], reverse=True)
 
 		# return the specified page of datasets

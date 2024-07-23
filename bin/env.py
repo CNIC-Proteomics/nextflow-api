@@ -2,15 +2,14 @@ import os
 import ipaddress
 
 
-
-# load settings from environment variables
+# Nextflow variables -----
 NXF_EXECUTOR = os.environ.get('NXF_EXECUTOR', default='local')
 NXF_CONF = os.environ.get('NXF_CONF')
 PVC_NAME = os.environ.get('PVC_NAME')
 
 
 
-# Define working directories
+# Define working directories -----
 BASE_DIRS = {
 	'k8s':    { 'workspace': '/workspace', 'dataspace': '/dataspace'},
 	'local':  { 'workspace': '/workspace', 'dataspace': '/dataspace'},
@@ -26,7 +25,7 @@ OUTPUTS_DIR = ''
 
 
 
-# Backend-Frontend: Access-Control-Allow-Origin
+# Backend-Frontend: Access-Control-Allow-Origin -----
 PORT_CORE = int(os.environ.get('PORT_CORE', 8080))
 PORT_APP = int(os.environ.get('PORT_APP', 3000))
 HOST_IP = os.environ.get('HOST_IP')
@@ -47,7 +46,20 @@ if HOST_IP is not None and is_valid_ip(HOST_IP):
 
 
 
+# Users section -----
+# jwt variables
+JWT_SECRET = os.environ.get('JWT_SECRET')
+JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM')
+JWT_EXP_DELTA_SECONDS = int(os.environ.get('JWT_EXP_DELTA_SECONDS'))
+# guess user
+USER_GUESS = os.environ.get('USER_GUESS')
+PWD_GUESS = os.environ.get('PWD_GUESS')
+# admin user
+USER_ADMIN = os.environ.get('USER_ADMIN')
+PWD_ADMIN = os.environ.get('PWD_ADMIN')
 
-# Validate environment settings
+
+
+# Validate environment settings -----
 if NXF_EXECUTOR == 'k8s' and PVC_NAME is None:
 	raise EnvironmentError('Using k8s executor but PVC is not defined')

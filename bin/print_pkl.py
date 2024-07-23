@@ -1,5 +1,6 @@
 import pickle
-import json
+#import json
+import pprint
 import sys
 
 # get input arguments
@@ -12,4 +13,5 @@ pkl_file = sys.argv[1]
 # print pkl file
 with open(pkl_file, 'rb') as f:
     data = pickle.load(f)
-print(json.dumps(data, indent=4))
+pprint.pprint(data, indent=1)
+#print(json.dumps(data, indent=4))

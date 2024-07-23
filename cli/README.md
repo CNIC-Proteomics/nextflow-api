@@ -1,36 +1,64 @@
 
-# Command lines for Dataset
+# Command lines for User
 
-1. List all dataset instances on a nextflow server
+1. Register a user instance
 ```
-bash dataset/query.sh http://localhost:8081
-```
-
-2. Create a dataset instance
-```
-bash dataset/create.sh http://localhost:8081 'experiment1'
+bash user/create.sh http://localhost:8081 'guess2' 'guess2'
 ```
 
-3. Upload dataset data for a dataset instance on a nextflow server
+2. Login with a user
 ```
-bash dataset/upload.sh http://localhost:8081 66212647c63490ba135050a0 "directory-path" "raw_files" /mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-SearchEngine/tests/test1/inputs/raw_files/Jurkat_Fr1.raw
+bash user/login.sh http://localhost:8081 'guess' 'guess' token.txt
+bash user/login.sh http://localhost:8081 'admin' '123.qwe' token.txt
+```
 
-bash dataset/upload.sh http://localhost:8081 66212647c63490ba135050a0 file-path exp_table /mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test1/inputs/exp_table.txt
+3. Edit a user
+```
+bash user/edit.sh http://localhost:8081 token.txt 'guess2' '{"role": "guess2"}'
 ```
 
 4. Get a dataset instance on a nextflow server
 ```
-bash dataset/get.sh http://localhost:8081 66212647c63490ba135050a0
+bash user/get.sh http://localhost:8081 token.txt 'guess2'
+```
+
+5. Delete a user
+```
+bash user/delete.sh http://localhost:8081 token.txt 'guess2'
+```
+
+# Command lines for Dataset
+
+1. List all dataset instances on a nextflow server
+```
+bash dataset/query.sh http://localhost:8081 token.txt
+```
+
+2. Create a dataset instance
+```
+bash dataset/create.sh http://localhost:8081 token.txt '{"experiment": "experiment1", "description": "Short description of dataset"}' dataset.txt
+```
+
+3. Upload dataset data for a dataset instance on a nextflow server
+```
+bash dataset/upload.sh http://localhost:8081 token.txt dataset.txt "directory-path" "raw_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-SearchEngine/tests/test1/inputs/raw_files/Jurkat_Fr1.raw"
+
+bash dataset/upload.sh http://localhost:8081 token.txt dataset.txt "file-path" "exp_table" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/exp_table.txt"
+```
+
+4. Get a dataset instance on a nextflow server
+```
+bash dataset/get.sh http://localhost:8081 token.txt dataset.txt
 ```
 
 5. Edit a dataset instance on a nextflow server
 ```
-bash dataset/edit.sh http://localhost:8081 66212647c63490ba135050a0 '{"description": "Short description", "author": "jmrodriguezc"}'
+bash dataset/edit.sh http://localhost:8081 token.txt dataset.txt '{"description": "Short description of dataset 2"}'
 ```
 
 6. Delete a dataset instance on a nextflow server
 ```
-bash dataset/delete.sh http://localhost:8081 66212647c63490ba135050a0
+bash dataset/delete.sh http://localhost:8081 token.txt dataset.txt
 ```
 
 
