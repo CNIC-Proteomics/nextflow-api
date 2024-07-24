@@ -14,6 +14,9 @@ class Backend():
 
 
 	# user functions -----
+	async def user_query(self, page, page_size):
+		raise NotImplementedError()
+
 	async def user_create(self, user):
 		raise NotImplementedError()
 
@@ -98,7 +101,6 @@ class FileBackend(Backend):
 				'users': [],
 				'datasets': [],
 				'workflows': [],
-				'outputs': [],
 				'tasks': []
 			}
 			self.save()
@@ -113,6 +115,20 @@ class FileBackend(Backend):
 	# ----------------
 	# User functions
 	# ----------------
+	async def user_query(self, page, page_size):
+		self._lock.acquire()
+		self.load()
+
+		# sort users by date_created in descending order
+		self._db['users'].sort(key=lambda w: w['date_created'], reverse=True)
+
+		# return the specified page of users
+		users = self._db['users'][(page * page_size):((page + 1) * page_size)]
+
+		self._lock.release()
+
+		return users
+
 	async def user_create(self, user):
 		self._lock.acquire()
 		self.load()
@@ -195,25 +211,17 @@ class FileBackend(Backend):
 	# ----------------
 	# Dataset functions
 	# ----------------
-	# async def dataset_query(self, page, page_size):
-	# 	self._lock.acquire()
-	# 	self.load()
-
-	# 	# sort datasets by date_created in descending order
-	# 	self._db['datasets'].sort(key=lambda w: w['date_created'], reverse=True)
-
-	# 	# return the specified page of datasets
-	# 	datasets = self._db['datasets'][(page * page_size) : ((page + 1) * page_size)]
-
-	# 	self._lock.release()
-
-	# 	return datasets
 	async def dataset_query(self, user_id, page, page_size):
 		self._lock.acquire()
 		self.load()
 
+		# get the datasets from a user id
+		if user_id == 'admin':
+			datasets = self._db['datasets']
+		else:
+			datasets = [d for d in self._db['datasets'] if d['user_id'] == user_id]
+
 		# sort datasets by date_created in descending order
-		datasets = [d for d in self._db['datasets'] if d['user_id'] == user_id]
 		datasets.sort(key=lambda w: w['date_created'], reverse=True)
 
 		# return the specified page of datasets
@@ -222,7 +230,6 @@ class FileBackend(Backend):
 		self._lock.release()
 
 		return datasets
-
 
 	async def dataset_create(self, dataset):
 		self._lock.acquire()
@@ -300,15 +307,21 @@ class FileBackend(Backend):
 	# ----------------
 	# Workflow functions
 	# ----------------
-	async def workflow_query(self, page, page_size):
+	async def workflow_query(self, user_id, page, page_size):
 		self._lock.acquire()
 		self.load()
 
+		# get the workflows from a user id
+		if user_id == 'admin':
+			workflows = self._db['workflows']
+		else:
+			workflows = [d for d in self._db['workflows'] if d['user_id'] == user_id]
+
 		# sort workflows by date_created in descending order
-		self._db['workflows'].sort(key=lambda w: w['date_created'], reverse=True)
+		workflows.sort(key=lambda w: w['date_created'], reverse=True)
 
 		# return the specified page of workflows
-		workflows = self._db['workflows'][(page * page_size) : ((page + 1) * page_size)]
+		workflows = workflows[(page * page_size) : ((page + 1) * page_size)]
 
 		self._lock.release()
 
@@ -386,6 +399,11 @@ class FileBackend(Backend):
 		if not found:
 			raise IndexError('Workflow was not found')
 
+
+
+	# ----------------
+	# Output functions
+	# ----------------
 	async def output_delete(self, id, attempt):
 		self._lock.acquire()
 		self.load()
@@ -399,6 +417,7 @@ class FileBackend(Backend):
 					if str(a['id']) == attempt:
 						# delete outpus
 						self._db['workflows'][i]['attempts'].pop(j)
+						self._db['workflows'][i]['n_attempts'] -= 1
 						found = True
 						break
 
@@ -504,12 +523,50 @@ class MongoBackend(Backend):
 		self._client = motor.motor_tornado.MotorClient(self._url)
 		self._db = self._client['nextflow_api']
 
+
+	# ----------------
+	# User functions
+	# ----------------
+	async def user_query(self, page, page_size):
+		return await self._db.users \
+			.find() \
+			.sort('date_created', pymongo.DESCENDING) \
+			.skip(page * page_size) \
+			.to_list(length=page_size)
+
+	async def user_create(self, user):
+		# get username
+		username = user['username']
+
+		# check if the username already exists
+		found = await self._db.users.find_one({'username': username})
+		
+		# if user is found, raise an error
+		if found:
+				raise IndexError('User already exists')
+
+		# if user is not found, insert the new user
+		return await self._db.users.insert_one(user)
+
+	async def user_get(self, username):
+		return await self._db.users.find_one({ 'username': username })
+
+	async def user_update(self, id, user):
+		return await self._db.users.replace_one({ '_id': id }, user)
+
+	async def user_delete(self, id):
+		return await self._db.users.delete_one({ '_id': id })
+
+
+
 	# ----------------
 	# Dataset functions
 	# ----------------
-	async def dataset_query(self, page, page_size):
+	async def dataset_query(self, user_id, page, page_size):
+		# if admin retrieves all; otherwise only created by user_id
+		query = {} if user_id == 'admin' else {'user_id': user_id}
 		return await self._db.datasets \
-			.find() \
+			.find(query) \
 			.sort('date_created', pymongo.DESCENDING) \
 			.skip(page * page_size) \
 			.to_list(length=page_size)
@@ -526,12 +583,16 @@ class MongoBackend(Backend):
 	async def dataset_delete(self, id):
 		return await self._db.datasets.delete_one({ '_id': id })
 
+
+
 	# ----------------
 	# Workflow functions
 	# ----------------
-	async def workflow_query(self, page, page_size):
+	async def workflow_query(self, user_id, page, page_size):
+		# if admin retrieves all; otherwise only created by user_id
+		query = {} if user_id == 'admin' else {'user_id': user_id}
 		return await self._db.workflows \
-			.find() \
+			.find(query) \
 			.sort('date_created', pymongo.DESCENDING) \
 			.skip(page * page_size) \
 			.to_list(length=page_size)
@@ -547,6 +608,42 @@ class MongoBackend(Backend):
 
 	async def workflow_delete(self, id):
 		return await self._db.workflows.delete_one({ '_id': id })
+
+
+
+	# ----------------
+	# Output functions
+	# ----------------
+	async def output_delete(self, id, attempt):
+
+		# find the workflow with the specified ID
+		workflow = await self._db.workflows.find_one({'_id': id})
+		if not workflow:
+			raise IndexError('Workflow not found')
+
+		# find the attempt within the workflow
+		attempts = workflow.get('attempts', [])
+		n_attempts = len(attempts)
+		found = False
+		for a in attempts:
+			if str(a['id']) == attempt:
+				attempts.remove(a)
+				found = True
+				break
+
+		if not found:
+				raise IndexError('Output was not found')
+
+		# update the workflow with the modified attempts list
+		result = await self._db.workflows.update_one(
+			{'_id': id},
+			{'$set': {'attempts': attempts, 'n_attempts': n_attempts-1}}
+		)
+
+		if result.matched_count == 0:
+			raise IndexError('Failed to delete the output')
+
+
 
 	# ----------------
 	# Task functions

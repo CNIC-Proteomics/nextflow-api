@@ -1,5 +1,5 @@
 #!/bin/bash
-# List all workflow instances on a nextflow server.
+# List all user instances on a nextflow server.
 
 # parse command-line arguments
 if [[ $# != 2 ]]; then
@@ -18,11 +18,11 @@ if [[ ! -f "${TOKEN_FILE}" ]]; then
 fi
 TOKEN=$(cat "${TOKEN_FILE}")
 
-# list all workflow instances
+
+# list all user instances
 curl -s \
 	-X GET \
 	-H "Authorization: Bearer ${TOKEN}" \
-	${URL}/api/workflows
-
+	${URL}/api/users
 
 echo
