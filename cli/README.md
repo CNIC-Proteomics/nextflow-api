@@ -3,25 +3,25 @@
 
 1. Register a user instance
 ```
-bash user/create.sh http://localhost:8081 'guess2' 'guess2'
+bash user/create.sh http://localhost:8081 'guest2' 'guest2'
 ```
 
 2. Login with a user
 ```
-bash user/login.sh http://localhost:8081 'guess' 'guess' token.txt
-bash user/login.sh http://localhost:8081 'guess2' 'guess2' token.txt
+bash user/login.sh http://localhost:8081 'guest' 'guest' token.txt
+bash user/login.sh http://localhost:8081 'guest2' 'guest2' token.txt
 
 bash user/login.sh http://localhost:8081 'admin' '123.qwe' token.txt
 ```
 
 3. Edit a user (admin user)
 ```
-bash user/edit.sh http://localhost:8081 token.txt 'guess2' '{"role": "guess2", "password": "guess3"}'
+bash user/edit.sh http://localhost:8081 token.txt 'guest2' '{"role": "guest2", "password": "guest3"}'
 ```
 
 4. Get a user instance (admin user)
 ```
-bash user/get.sh http://localhost:8081 token.txt 'guess2'
+bash user/get.sh http://localhost:8081 token.txt 'guest2'
 ```
 
 5. List all user instances (admin user)
@@ -31,7 +31,7 @@ bash user/query.sh http://localhost:8081 token.txt
 
 6. Delete a user (admin user)
 ```
-bash user/delete.sh http://localhost:8081 token.txt 'guess2'
+bash user/delete.sh http://localhost:8081 token.txt 'guest2'
 ```
 
 # Command lines for Dataset
@@ -105,7 +105,7 @@ bash workflow/query.sh http://localhost:8081 token.txt
 bash workflow/create.sh http://localhost:8081 token.txt \
 '{"pipeline": "https://github.com/CNIC-Proteomics/nf-PTM-compass",
 "revision": "0.1.0",
-"profiles": "guess",
+"profiles": "guest",
 "description": "PTM-compass workflow"
 }' workflow_id.txt
 ```
@@ -115,7 +115,7 @@ bash workflow/create.sh http://localhost:8081 token.txt \
 bash workflow/edit.sh http://localhost:8081 token.txt workflow_id.txt \
 '{"pipeline": "https://github.com/CNIC-Proteomics/nf-PTM-compass",
 "revision": "0.1.0",
-"profiles": "guess",
+"profiles": "guest",
 "description": "PTM-compass workflow"
 }'
 ```

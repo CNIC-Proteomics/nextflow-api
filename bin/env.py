@@ -52,9 +52,9 @@ print(f'** CORS: {CORS_HOSTS}')
 JWT_SECRET = os.environ.get('JWT_SECRET')
 JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM')
 JWT_EXP_DELTA_SECONDS = int(os.environ.get('JWT_EXP_DELTA_SECONDS'))
-# guess user
-USER_GUESS = os.environ.get('USER_GUESS')
-PWD_GUESS = os.environ.get('PWD_GUESS')
+# guest user
+USER_GUEST = os.environ.get('USER_GUEST')
+PWD_GUEST = os.environ.get('PWD_GUEST')
 # admin user
 USER_ADMIN = os.environ.get('USER_ADMIN')
 PWD_ADMIN = os.environ.get('PWD_ADMIN')

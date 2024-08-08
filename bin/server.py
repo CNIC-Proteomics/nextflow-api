@@ -99,7 +99,7 @@ def build_tree(path, relpath_start='', key_prefix=''):
 			relative_dirpath = os.path.relpath(dirpath, start=relpath_start)
 			full_file_path = os.path.join(dirpath, filename)
 			file_size = os.path.getsize(full_file_path)
-			file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
+			file_type = mimetypes.guest_type(full_file_path, strict=False)[0]
 			tree.append({
 				'key': key,
 				'data': {
@@ -131,12 +131,12 @@ async def initialize_users(db):
 	except Exception as e:
 		print(f'** admin user: {e}')
 
-	# initialize the guess user
+	# initialize the guest user
 	try:
-		user_guess = await create_user(db, env.USER_GUESS, env.PWD_GUESS)
-		print(f'** guess user with ID: {user_guess["_id"]}')
+		user_guest = await create_user(db, env.USER_GUEST, env.PWD_GUEST)
+		print(f'** guest user with ID: {user_guest["_id"]}')
 	except Exception as e:
-		print(f'** guess user: {e}')
+		print(f'** guest user: {e}')
 
 
 
@@ -201,7 +201,7 @@ class CORSAuthMixin(tornado.web.RequestHandler):
 #
 # Create user
 #
-async def create_user(db, username, password, role='guess'):
+async def create_user(db, username, password, role='guest'):
 
 	# encode pwd
 	try:
@@ -783,7 +783,7 @@ class WorkflowCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		'author': '',
 		'description': '',
 		'revision': 'main',
-		'profiles': 'guess',
+		'profiles': 'guest',
 		'n_attempts': 0,
 		'attempts': []
 	}
@@ -850,7 +850,7 @@ class WorkflowEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		'author': '',
 		'description': '',
 		'revision': 'main',
-		'profiles': 'guess',
+		'profiles': 'guest',
 		'n_attempts': 0,
 		'attempts': []
 	}
@@ -1771,7 +1771,7 @@ if __name__ == '__main__':
 		else:
 			raise KeyError('Backend must be either \'json\' or \'mongo\'')
 
-		# initialize the admin and guess users
+		# initialize the admin and guest users
 		db = app.settings['db']
 		tornado.ioloop.IOLoop.current().run_sync(lambda: initialize_users(db))
 
