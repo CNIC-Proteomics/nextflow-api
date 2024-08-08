@@ -21,5 +21,5 @@ fi
 export NXF_EXECUTOR="local"
 export TF_CPP_MIN_LOG_LEVEL="3"
 
-echo "${HOME_DIR}/bin/server.py --backend=${BACKEND}"
+echo "** ${HOME_DIR}/bin/server.py --backend=${BACKEND}"
 ${HOME_DIR}/bin/server.py --backend=${BACKEND}

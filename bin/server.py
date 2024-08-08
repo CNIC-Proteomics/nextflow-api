@@ -166,11 +166,12 @@ class CORSMixin:
 # Define your CORSAuthMixin
 class CORSAuthMixin(tornado.web.RequestHandler):
 	def set_default_headers(self):
-		origin = self.request.headers.get("Origin")
-		if origin in env.CORS_HOSTS:
-				self.set_header("Access-Control-Allow-Origin", origin)
-		self.set_header("Access-Control-Allow-Headers", "x-requested-with, content-type")
-		self.set_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PUT")
+			origin = self.request.headers.get("Origin")
+			if origin in env.CORS_HOSTS:
+					self.set_header("Access-Control-Allow-Origin", origin)
+			self.set_header("Access-Control-Allow-Headers", "x-requested-with, content-type, Authorization")
+			self.set_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PUT")
+			self.set_header("Access-Control-Allow-Credentials", "true")
 
 	def options(self, *args, **kwargs):
 		self.set_status(204)
@@ -181,6 +182,9 @@ class CORSAuthMixin(tornado.web.RequestHandler):
 		self.finish({"status": status_code, "message": self._reason})
 
 	def prepare(self):
+		# OPTIONS request should not require authorization
+		if self.request.method == "OPTIONS":
+			return
 		if 'Authorization' not in self.request.headers:
 			raise tornado.web.HTTPError(401, 'Missing authorization header')		
 		token = self.request.headers['Authorization'].split(' ')[-1]

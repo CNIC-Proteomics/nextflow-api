@@ -43,6 +43,7 @@ def is_valid_ip(ip_str):
 		return False
 if HOST_IP is not None and is_valid_ip(HOST_IP):
 	CORS_HOSTS.append(f"http://{HOST_IP}:{PORT_APP}")
+print(f'** CORS: {CORS_HOSTS}')
 
 
 
