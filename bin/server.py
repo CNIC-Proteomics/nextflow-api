@@ -99,7 +99,7 @@ def build_tree(path, relpath_start='', key_prefix=''):
 			relative_dirpath = os.path.relpath(dirpath, start=relpath_start)
 			full_file_path = os.path.join(dirpath, filename)
 			file_size = os.path.getsize(full_file_path)
-			file_type = mimetypes.guest_type(full_file_path, strict=False)[0]
+			file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
 			tree.append({
 				'key': key,
 				'data': {
