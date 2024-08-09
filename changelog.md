@@ -8,7 +8,7 @@ DATE: 2024_08
 
 + Adding the authentication
 
-### Changes
+### Changes in detail
 
 
 ___
@@ -23,7 +23,7 @@ DATE: 2024_07
 
 + Nextflow-API is a web application and REST API for submitting and monitoring Nextflow pipelines on a variety of execution environments.
 
-### Changes
+### Changes in detail
 
 
 
