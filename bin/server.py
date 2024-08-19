@@ -354,6 +354,18 @@ class UserCreateHandler(CORSMixin, tornado.web.RequestHandler):
 		username = data['username']
 		password = data['password']
 
+		# Check if username already exists
+		try:
+			user = await db.user_get(username)
+			if user:
+				self.set_status(409)  # Conflict
+				self.write(message(409, 'Username already exists'))
+				return
+		except Exception as e:
+			self.set_status(500)
+			self.write(message(500, f'Error checking username: {str(e)}'))
+			return
+
 		# create user
 		try:
 			user = await create_user(db, username, password)
@@ -362,7 +374,7 @@ class UserCreateHandler(CORSMixin, tornado.web.RequestHandler):
 			self.write(message(500, f'Creating user: {str(e)}'))
 			return
 	
-		self.set_status(200)
+		self.set_status(201)
 		self.set_header('content-type', 'application/json')
 		self.write(tornado.escape.json_encode({ '_id': user['_id'] }))
 
@@ -400,7 +412,7 @@ class UserEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		'role': ''
 	}
 
-	@role_required(['admin'])
+	@role_required([])
 	async def get(self, username):
 		db = self.settings['db']
 
@@ -560,7 +572,7 @@ class DatasetCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		dataset_dir = os.path.join(env.DATASETS_DIR, dataset['_id'])
 		os.makedirs(dataset_dir)
 
-		self.set_status(200)
+		self.set_status(201)
 		self.set_header('content-type', 'application/json')
 		self.write(tornado.escape.json_encode({ '_id': dataset['_id'] }))
 
@@ -834,7 +846,7 @@ class WorkflowCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		workflow_dir = os.path.join(env.WORKFLOWS_DIR, workflow['_id'])
 		os.makedirs(workflow_dir)
 
-		self.set_status(200)
+		self.set_status(201)
 		self.set_header('content-type', 'application/json')
 		self.write(tornado.escape.json_encode({ '_id': workflow['_id'] }))
 
