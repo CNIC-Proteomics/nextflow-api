@@ -8,6 +8,8 @@ DATE: 2024_08
 
 + Adding the authentication
 
++ Add the MongoDB in remote mode
+
 ### Changes in detail
 
 
