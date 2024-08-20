@@ -47,6 +47,11 @@ print(f'** CORS: {CORS_HOSTS}')
 
 
 
+# MongoDB section -----
+MONGODB_DB = os.environ.get('MONGODB_DB')
+
+
+
 # Users section -----
 # jwt variables
 JWT_SECRET = os.environ.get('JWT_SECRET')

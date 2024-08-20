@@ -3,6 +3,7 @@ import multiprocessing as mp
 import pickle
 import pymongo
 
+import env
 
 
 class Backend():
@@ -521,7 +522,7 @@ class MongoBackend(Backend):
 
 	def initialize(self):
 		self._client = motor.motor_tornado.MotorClient(self._url)
-		self._db = self._client['nextflow_api']
+		self._db = self._client[env.MONGODB_DB]
 
 
 	# ----------------

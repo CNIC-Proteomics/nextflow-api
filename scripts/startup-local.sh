@@ -12,14 +12,17 @@ else
 	exit -1
 fi
 
-# start mongodb server
-if [[ ${BACKEND} == "mongo" ]]; then
-    scripts/db-startup.sh
-fi
-
 # start web server
 export NXF_EXECUTOR="local"
 export TF_CPP_MIN_LOG_LEVEL="3"
 
-echo "** ${HOME_DIR}/bin/server.py --backend=${BACKEND}"
-${HOME_DIR}/bin/server.py --backend=${BACKEND}
+# # start server with local mongodb
+# if [[ ${BACKEND} == "mongo" ]]; then
+#     scripts/db-startup.sh
+# fi
+# echo "** ${HOME_DIR}/bin/server.py --backend=${BACKEND}"
+# ${HOME_DIR}/bin/server.py --backend=${BACKEND}
+
+# start server with remote mongodb
+echo "** ${HOME_DIR}/bin/server.py --backend=${BACKEND} --url-mongo=mongodb://${MONGODB_USER}:XXX@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DB}?authSource=admin"
+${HOME_DIR}/bin/server.py --backend=${BACKEND} --url-mongo=mongodb://${MONGODB_USER}:${MONGODB_PWD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DB}?authSource=admin
