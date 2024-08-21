@@ -54,15 +54,15 @@ MONGODB_DB = os.environ.get('MONGODB_DB')
 
 # Users section -----
 # jwt variables
-JWT_SECRET = os.environ.get('JWT_SECRET')
-JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM')
-JWT_EXP_DELTA_SECONDS = int(os.environ.get('JWT_EXP_DELTA_SECONDS'))
+JWT_SECRET = os.environ.get('JWT_SECRET', 'your_jwt_secret')
+JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
+JWT_EXP_DELTA_SECONDS = int(os.environ.get('JWT_EXP_DELTA_SECONDS', 3600))
 # guest user
-USER_GUEST = os.environ.get('USER_GUEST')
-PWD_GUEST = os.environ.get('PWD_GUEST')
+USER_GUEST = os.environ.get('USER_GUEST', 'guest')
+PWD_GUEST = os.environ.get('PWD_GUEST', 'guest')
 # admin user
-USER_ADMIN = os.environ.get('USER_ADMIN')
-PWD_ADMIN = os.environ.get('PWD_ADMIN')
+USER_ADMIN = os.environ.get('USER_ADMIN', 'admin')
+PWD_ADMIN = os.environ.get('PWD_ADMIN', 'admin')
 
 
 
