@@ -12,6 +12,9 @@ else
 	exit -1
 fi
 
+# source the environment file
+source ${HOME_DIR}/.env
+
 # start web server
 export NXF_EXECUTOR="local"
 export TF_CPP_MIN_LOG_LEVEL="3"
