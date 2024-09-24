@@ -43,7 +43,7 @@ bash dataset/query.sh http://localhost:8081 token.txt
 
 2. Create a dataset instance
 ```
-bash dataset/create.sh http://localhost:8081 token.txt '{"experiment": "experiment1", "description": "Short description of dataset"}' dataset_id.txt
+bash dataset/create.sh http://localhost:8081 token.txt '{"description": "Short description of dataset"}' dataset_id.txt
 ```
 
 3. Upload dataset data for a dataset instance on a nextflow server
@@ -53,17 +53,24 @@ bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "exp_table" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/exp_table.txt"
 ```
 
-4. Get a dataset instance on a nextflow server
+4. Remove a data file for a dataset instance on a nextflow server
+```
+bash dataset/remove.sh http://localhost:8081 token.txt dataset_id.txt '{"filenames": ["inputs/raw_files/Jurkat_Fr1.raw"]}'
+
+bash dataset/remove.sh http://localhost:8081 token.txt dataset_id.txt '{"filenames": ["exp_table.txt"]}'
+```
+
+5. Get a dataset instance on a nextflow server
 ```
 bash dataset/get.sh http://localhost:8081 token.txt dataset_id.txt
 ```
 
-5. Edit a dataset instance on a nextflow server
+6. Edit a dataset instance on a nextflow server
 ```
 bash dataset/edit.sh http://localhost:8081 token.txt dataset_id.txt '{"description": "Short description of dataset 2"}'
 ```
 
-6. Delete a dataset instance on a nextflow server (admin user)
+7. Delete a dataset instance on a nextflow server (admin user)
 ```
 bash dataset/delete.sh http://localhost:8081 token.txt dataset_id.txt
 ```
@@ -71,7 +78,7 @@ bash dataset/delete.sh http://localhost:8081 token.txt dataset_id.txt
 
 ### Test example for nf-PTM-compass using ReCom dataset
 ```
-bash dataset/create.sh http://localhost:8081 token.txt '{"experiment": "ReCom_dataset_1", "description": "ReCom dataset_1 (TMT_FA)"}' dataset_id.txt
+bash dataset/create.sh http://localhost:8081 token.txt '{"description": "ReCom dataset_1 (TMT_FA)"}' dataset_id.txt
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "recom_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/recom_files/TMT_FA_1_fr1.txt"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "recom_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/recom_files/TMT_FA_1_fr2.txt"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "exp_table" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/exp_table.txt"
@@ -83,7 +90,7 @@ bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path
 
 ### Test example for nf-PTM-compass using RefMod dataset
 ```
-bash dataset/create.sh http://localhost:8081 token.txt '{"experiment": "RefMod", "description": "RefMod dataset_1 (BA_DIA)"}' dataset_id.txt
+bash dataset/create.sh http://localhost:8081 token.txt '{"description": "RefMod dataset_1 (BA_DIA)"}' dataset_id.txt
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "refmod_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test2/inputs/refmod_files/BA_1_REFRAG.tsv"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "refmod_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test2/inputs/refmod_files/BA_2_REFRAG.tsv"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "exp_table" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test2/inputs/exp_table.txt"

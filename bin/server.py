@@ -19,6 +19,7 @@ import tornado.web
 import zipfile
 import io
 import mimetypes
+import traceback
 # login
 import bcrypt
 import jwt
@@ -45,6 +46,13 @@ def message(status, message):
 		'message': message
 	}
 
+#
+# Function to handle and print unhandled exceptions
+#
+def log_exception(e):
+	print('ERROR: %s' % (e), flush=True)
+	traceback.print_exc()
+	
 #
 # Retrieves the list of files recursively
 #
@@ -114,8 +122,9 @@ def build_tree(path, relpath_start='', key_prefix=''):
 		# Only process the top level of the current directory, not recursively
 		break
 
-	# Sort the tree by the 'name' in 'data'
-	tree = sorted(tree, key=lambda x: x['data']['name'])
+	# Sort the tree by 'type' (folders first) and 'name'
+	tree = sorted(tree, key=lambda x: (x['data']['type'] != 'folder', x['data']['name']))
+
 
 	return tree
 
@@ -309,6 +318,7 @@ class LoginHandler(CORSMixin, tornado.web.RequestHandler):
 		try:
 			user = await db.user_get(username)
 		except Exception as e:
+			log_exception(e)
 			self.set_status(500)
 			self.write(message(500, f'Failed to login user: {str(e)}'))
 			return
@@ -362,6 +372,7 @@ class UserCreateHandler(CORSMixin, tornado.web.RequestHandler):
 				self.write(message(409, 'Username already exists'))
 				return
 		except Exception as e:
+			log_exception(e)
 			self.set_status(500)
 			self.write(message(500, f'Error checking username: {str(e)}'))
 			return
@@ -370,6 +381,7 @@ class UserCreateHandler(CORSMixin, tornado.web.RequestHandler):
 		try:
 			user = await create_user(db, username, password)
 		except Exception as e:
+			log_exception(e)
 			self.set_status(500)
 			self.write(message(500, f'Creating user: {str(e)}'))
 			return
@@ -426,7 +438,8 @@ class UserEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(user))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to get user \"%s\"' % username))
 
@@ -467,9 +480,9 @@ class UserEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode({ '_id': id }))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
-			# self.write(message(404, 'Failed to update user \"%s\"' % username))
-			self.write(message(404, 'Failed to update user \"%s\"' % e))
+			self.write(message(404, 'Failed to update user \"%s\"' % username))
 
 	@role_required(['admin'])
 	async def delete(self, username):
@@ -485,7 +498,8 @@ class UserEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			self.set_status(200)
 			self.write(message(200, 'User \"%s\" was deleted' % username))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to delete user \"%s\"' % username))
 
@@ -517,11 +531,11 @@ class DatasetQueryHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 class DatasetCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
-	REQUIRED_KEYS = set([
-		'experiment'
-	])
+	REQUIRED_KEYS = set([])
 
 	DEFAULTS = {
+		'name': '',
+		'author': '',
 		'description': '',
 		'n_files': 0
 	}
@@ -559,9 +573,6 @@ class DatasetCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		# append creation timestamp to dataset
 		dataset['date_created'] = int(time.time() * 1000)
 
-		# transform experiment name to lowercase
-		dataset['experiment'] = dataset['experiment'].lower()
-
 		# append the current user id
 		dataset['user_id'] = self.current_user['_id']
 
@@ -580,12 +591,11 @@ class DatasetCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 class DatasetEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
-	REQUIRED_KEYS = set([
-		'experiment',
-		'description'
-	])
+	REQUIRED_KEYS = set([])
 
 	DEFAULTS = {
+		'name': '',
+		'author': '',
 		'description': '',
 		'n_files': 0
 	}
@@ -601,14 +611,15 @@ class DatasetEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			# append list of input files
 			dataset_dir = os.path.join(env.DATASETS_DIR, id)
 			if os.path.exists(dataset_dir):
-				dataset['files'] = list_dir_recursive(dataset_dir, relpath_start=dataset_dir)
+				dataset['files'] = build_tree(dataset_dir, relpath_start=dataset_dir)
 			else:
 				dataset['files'] = []
 
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(dataset))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to get dataset \"%s\"' % id))
 
@@ -619,14 +630,14 @@ class DatasetEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		# make sure request body is valid
 		try:
 			data = tornado.escape.json_decode(self.request.body)
-			added_keys = data.keys() - self.REQUIRED_KEYS
+			missing_keys = self.REQUIRED_KEYS - data.keys()
 		except json.JSONDecodeError:
 			self.set_status(422)
 			self.write(message(422, 'Ill-formatted JSON'))
 
-		if added_keys:
+		if missing_keys:
 			self.set_status(400)
-			self.write(message(400, 'There are more field(s) than allowed: %s' % list(self.REQUIRED_KEYS)))
+			self.write(message(400, 'Missing required field(s): %s' % list(missing_keys)))
 			return
 
 		try:
@@ -634,16 +645,14 @@ class DatasetEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			dataset = await db.dataset_get(id)
 			dataset = {**self.DEFAULTS, **dataset, **data}
 
-			# transform experiment name to lowercase
-			dataset['experiment'] = dataset['experiment'].lower() 
-
 			# save dataset
 			await db.dataset_update(id, dataset)
 
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode({ '_id': id }))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to update dataset \"%s\"' % id))
 
@@ -660,7 +669,8 @@ class DatasetEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			self.set_status(200)
 			self.write(message(200, 'Dataset \"%s\" was deleted' % id))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to delete dataset \"%s\"' % id))
 
@@ -684,7 +694,8 @@ class DatasetUploadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		try:
 			# get dataset
 			dataset = await db.dataset_get(id)
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Dataset \"%s\" was not found' % id))
 
@@ -701,6 +712,8 @@ class DatasetUploadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 				for f_list in files.values():
 					for f_arg in f_list:
 						filename, body = f_arg['filename'], f_arg['body']
+						# get the filename
+						filename = os.path.basename(filename)
 						with open(os.path.join(input_dir, filename), 'wb') as f:
 							f.write(body)
 						filenames.append(filename)
@@ -713,7 +726,8 @@ class DatasetUploadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 				self.set_status(200)
 				self.write(message(200, 'File \"%s\" was uploaded for dataset \"%s\" successfully' % (filenames, id)))
-			except:
+			except Exception as e:
+				log_exception(e)
 				self.set_status(404)
 				self.write(message(404, 'Failed to upload the file for dataset \"%s\"' % id))
 
@@ -744,7 +758,8 @@ class DatasetUploadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 				self.set_status(200)
 				self.write(message(200, 'File \"%s\" was uploaded for dataset \"%s\" successfully' % (filenames, id)))
-			except:
+			except Exception as e:
+				log_exception(e)
 				self.set_status(404)
 				self.write(message(404, 'Failed to upload the file for dataset \"%s\"' % id))
 
@@ -752,6 +767,75 @@ class DatasetUploadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		else:
 			self.set_status(404)
 			self.write(message(404, 'The \"%s\" value for the query is not correct. Try with ["directory-path","file-path"]' % format))
+
+
+
+
+class DatasetDeleteHandler(CORSAuthMixin, tornado.web.RequestHandler):
+
+	REQUIRED_KEYS = set([
+		'filenames'
+	])
+
+	@role_required([])
+	async def delete(self, id):
+		db = self.settings['db']
+
+		# make sure request body is valid
+		try:
+			data = tornado.escape.json_decode(self.request.body)
+			missing_keys = self.REQUIRED_KEYS - data.keys()
+		except json.JSONDecodeError:
+			self.set_status(422)
+			self.write(message(422, 'Ill-formatted JSON'))
+			return
+
+		if missing_keys:
+			self.set_status(400)
+			self.write(message(400, 'Missing required field(s): %s' % list(missing_keys)))
+			return
+
+		try:
+			# get dataset
+			dataset = await db.dataset_get(id)
+		except Exception as e:
+			log_exception(e)
+			self.set_status(404)
+			self.write(message(404, 'Dataset \"%s\" was not found' % id))
+
+		try:
+			# directory where the dataset's files are stored
+			input_dir = os.path.join(env.DATASETS_DIR, id)
+
+			# to track deleted files
+			filenames = data['filenames']
+
+			for filename in filenames:
+				f_path = os.path.join(input_dir, filename)
+				# remove the file and decrease the number of files
+				if os.path.exists(f_path):
+					# if filename is a folder, delete ir
+					if os.path.isdir(f_path):
+						fc = sum(len(files) for _, _, files in os.walk(f_path)) # conunt the num files
+						shutil.rmtree(f_path, ignore_errors=True)
+						dataset['n_files'] -= fc # descrease the num. files that has been deleted
+					else:
+						os.remove(f_path)
+						dataset['n_files'] -= 1 # decrease in one file
+				else:
+					raise KeyError('File \"%s\" does not exists' % (filename))
+
+			# save dataset
+			await db.dataset_update(id, dataset)
+
+			self.set_status(200)
+			self.write(message(200, 'Files \"%s\" were deleted for dataset \"%s\" successfully' % (','.join(filenames), id)))
+		except Exception as e:
+			log_exception(e)
+			self.set_status(404)
+			self.write(message(404, 'Failed to remove the files for dataset \"%s\"' % id))
+
+
 
 
 
@@ -882,7 +966,8 @@ class WorkflowEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(workflow))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to get workflow \"%s\"' % id))
 
@@ -917,7 +1002,8 @@ class WorkflowEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode({ '_id': id }))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to update workflow \"%s\"' % id))
 
@@ -934,7 +1020,8 @@ class WorkflowEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			self.set_status(200)
 			self.write(message(200, 'Workflow \"%s\" was deleted' % id))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to delete workflow \"%s\"' % id))
 
@@ -974,7 +1061,8 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		try:
 			# get workflow
 			workflow = await db.workflow_get(id)
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to get workflow \"%s\"' % id))
 			return
@@ -1033,11 +1121,10 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			self.set_status(200)
 			self.write(message(200, 'Workflow \"%s\" was launched' % id))
-		# except:
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
-			# self.write(message(404, 'Failed to launch workflow \"%s\"' % id))
-			self.write(message(404, 'Failed \"%s\"' % e))
+			self.write(message(404, 'Failed to launch workflow \"%s\"' % id))
 
 
 
@@ -1073,7 +1160,8 @@ class WorkflowCancelHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			self.set_status(200)
 			self.write(message(200, 'Workflow \"%s\" was canceled' % id))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to cancel workflow \"%s\"' % id))
 
@@ -1121,8 +1209,10 @@ class WorkflowLogHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.set_header('cache-control', 'no-store, no-cache, must-revalidate, max-age=0')
 			self.write(tornado.escape.json_encode(data))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
-			self.write(message(404, 'Failed to fetch log for workflow \"%s\"' % e))
+			self.write(message(404, 'Failed to fetch log for workflow \"%s\"' % id))
+
 
 
 
@@ -1168,6 +1258,7 @@ class OutputEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(outputs))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to get output attempt from workflow \"%s/%s\"' % (id,attempt)))
 
@@ -1189,9 +1280,9 @@ class OutputEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.write(message(200, 'Output \"%s/%s\" was deleted' % (id,attempt)))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
-			# self.write(message(404, 'Failed to delete output \"%s/%s\"' % (id,attempt)))
-			self.write(message(404, 'Failed to delete output \"%s\"' % (e)))
+			self.write(message(404, 'Failed to delete output \"%s/%s\"' % (id,attempt)))
 
 
 
@@ -1264,7 +1355,8 @@ class OutputMultipleDownloadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			# write the zip file data to the response
 			self.write(memory_zip.getvalue())
 		
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to download the multiple output files for \"%s/%s\"' % (id,attempt)))
 
@@ -1364,7 +1456,8 @@ class TaskQueryHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode({ '_id': task['_id'] }))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to save task'))
 
@@ -1402,7 +1495,8 @@ class TaskLogHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(data))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to fetch log for workflow \"%s\"' % id))
 
@@ -1421,6 +1515,7 @@ class TaskQueryPipelinesHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(pipelines))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to perform query'))
 			raise e
@@ -1449,6 +1544,7 @@ class TaskQueryPipelineHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(dfs))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to perform query'))
 			raise e
@@ -1494,6 +1590,7 @@ class TaskArchiveHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.write(message(200, 'Archive was created'))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to create archive'))
 			raise e
@@ -1562,6 +1659,7 @@ class TaskVisualizeHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(image_data))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to visualize data'))
 			raise e
@@ -1579,7 +1677,8 @@ class TaskEditHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(task))
-		except:
+		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to get task \"%s\"' % id))
 
@@ -1657,6 +1756,7 @@ class ModelTrainHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(results))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to train model'))
 			raise e
@@ -1682,6 +1782,7 @@ class ModelConfigHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(config))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to get model config'))
 			raise e
@@ -1704,6 +1805,7 @@ class ModelPredictHandler(CORSMixin, tornado.web.RequestHandler):
 			self.set_header('content-type', 'application/json')
 			self.write(tornado.escape.json_encode(results))
 		except Exception as e:
+			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to perform model prediction'))
 			raise e
@@ -1737,6 +1839,7 @@ if __name__ == '__main__':
 		(r'/api/datasets/0', DatasetCreateHandler),
 		(r'/api/datasets/([a-zA-Z0-9-]+)', DatasetEditHandler),
 		(r'/api/datasets/([a-zA-Z0-9-]+)/([a-zA-Z-]+)/([a-zA-Z0-9-_]+)/upload', DatasetUploadHandler),
+		(r'/api/datasets/([a-zA-Z0-9-]+)/delete', DatasetDeleteHandler),
 
 		(r'/api/workflows', WorkflowQueryHandler),
 		(r'/api/workflows/0', WorkflowCreateHandler),
@@ -1748,9 +1851,9 @@ if __name__ == '__main__':
 		# (r'/api/workflows/([a-zA-Z0-9-]+)/download', WorkflowDownloadHandler, dict(path=env.WORKFLOWS_DIR)),
 
 		(r'/api/outputs/([a-zA-Z0-9-]+)/([0-9]+)', OutputEditHandler),
-		(r'/api/outputs/single/(.+)/download', OutputDownloadHandler, dict(path=env.WORKFLOWS_DIR)),
+		(r'/api/outputs/single/(.+)/download', OutputDownloadHandler, dict(path=env.BASE_DIR['workspace'])),
 		(r'/api/outputs/multiple/([a-zA-Z0-9-]+)/([0-9]+)/download', OutputMultipleDownloadHandler),
-			(r'/api/outputs/archive/(.+)/download', OutputArchiveDownloadHandler, dict(path=env.WORKFLOWS_DIR)),
+		(r'/api/outputs/archive/(.+)/download', OutputArchiveDownloadHandler, dict(path=env.WORKFLOWS_DIR)),
 
 		(r'/api/tasks', TaskQueryHandler),
 		(r'/api/tasks/([a-zA-Z0-9-]+)/log', TaskLogHandler),
