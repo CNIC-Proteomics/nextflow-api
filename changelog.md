@@ -1,4 +1,18 @@
 ___
+## 1.2
+```
+DATE: 2024_10
+```
+
+### Highlights
+
++ Changes for the dataset reports: remove files, add 'name' metadata, ...
+
++ Exception logs are printed by standard output.
+
+### Changes in detail
+
+___
 ## 1.1
 ```
 DATE: 2024_08
