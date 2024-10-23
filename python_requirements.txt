@@ -61,4 +61,3 @@ Werkzeug
 wrapt
 zipp
 bcrypt
-traceback
