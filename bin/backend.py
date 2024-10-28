@@ -2,6 +2,7 @@ import motor.motor_tornado
 import multiprocessing as mp
 import pickle
 import pymongo
+import json
 
 import env
 
@@ -74,6 +75,8 @@ class Backend():
 
 	async def task_get(self, id):
 		raise NotImplementedError()
+
+
 
 
 # /*
@@ -688,3 +691,48 @@ class MongoBackend(Backend):
 
 	async def task_get(self, id):
 		return await self._db.tasks.find_one({ '_id': id })
+
+
+
+
+# /*
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# 	FILE META
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#		Class that save meta data into a file
+# ----------------------------------------------------------------------------------------
+# */
+
+class FileMeta():
+
+	def __init__(self, file):
+		self._lock = mp.Lock()
+		self._file = file
+		self.initialize()
+
+	def initialize(self, error_not_found=False):
+		# Load database from JSON file if it exists, otherwise initialize empty data
+		try:
+			self.load()
+		except FileNotFoundError:
+			self._meta = {}
+			self.save()
+
+	def load(self):
+		with open(self._file, 'r') as file:
+			self._meta = json.load(file)
+
+	def save(self):
+		with open(self._file, 'w') as file:
+			json.dump(self._meta, file, indent=4)  # Indent for readability
+
+	# add meta info into meta file
+	async def create(self, meta):
+		self._lock.acquire()
+		try:
+			self.load()
+			self._meta = meta
+			self.save()
+		finally:
+				self._lock.release()
+

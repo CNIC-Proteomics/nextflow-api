@@ -10,10 +10,11 @@ PVC_NAME = os.environ.get('PVC_NAME')
 
 
 # Define working directories -----
+WORKSPACE_HOME = os.environ.get('WORKSPACE_HOME', '/workspace')
 BASE_DIRS = {
-	'k8s':    { 'workspace': '/workspace', 'dataspace': '/dataspace'},
-	'local':  { 'workspace': '/workspace', 'dataspace': '/dataspace'},
-	'pbspro': { 'workspace': '/workspace', 'dataspace': '/dataspace'},
+	'k8s':    { 'workspace': WORKSPACE_HOME, 'dataspace': '/dataspace'},
+	'local':  { 'workspace': WORKSPACE_HOME, 'dataspace': '/dataspace'},
+	'pbspro': { 'workspace': WORKSPACE_HOME, 'dataspace': '/dataspace'},
 }
 BASE_DIR = BASE_DIRS[NXF_EXECUTOR]
 
@@ -44,6 +45,11 @@ def is_valid_ip(ip_str):
 if HOST_IP is not None and is_valid_ip(HOST_IP):
 	CORS_HOSTS.append(f"http://{HOST_IP}:{PORT_APP}")
 print(f'** CORS: {CORS_HOSTS}')
+
+
+
+# Shared Volumes section -----
+SHARED_VOLUMES = os.environ.get('SHARED_VOLUMES')
 
 
 

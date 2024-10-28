@@ -36,11 +36,9 @@ ID=$(echo "$OUTPUT" | sed -n 's/.*"_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1
 
 # save the id if applied
 if [[ ${ID} == "" ]]; then
-  echo "Query failed. Please check your parameters."
+  echo "Query failed. Please check your parameters. Error: ${OUTPUT}"
   exit -1
 else
   echo "Query successful. Saving ID to ${ID_FILE}"
   echo "${ID}" > "${ID_FILE}"
 fi
-
-echo

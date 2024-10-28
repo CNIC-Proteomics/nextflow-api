@@ -128,6 +128,79 @@ def build_tree(path, relpath_start='', key_prefix=''):
 
 	return tree
 
+#
+# Extract the files/folders from a path. Only retrieve the contents of the current directory
+#
+def scan_directory(path, relpath_start='', key_prefix=''):
+
+	# Get the meta info if exists
+	def _get_meta(full_subdir_path):
+		meta = {}
+		meta_file = os.path.join(full_subdir_path, 'meta.json')
+		if os.path.exists(meta_file):
+			with open(meta_file, 'r') as m:
+				meta = json.load(m)
+		return meta
+
+	tree = []
+	key_counter = 0
+
+	try:
+		# get the directories and files in the given path (no recursion)
+		for dirpath, subdirs, filenames in [(path, next(os.walk(path))[1], next(os.walk(path))[2])]:
+			# exclude hidden files, directories, and files starting with "~", "$"
+			subdirs = [d for d in subdirs if not d.startswith('.') and not d.startswith('~') and not d.startswith('$')]
+			filenames = [f for f in filenames if not f.startswith('.') and not f.startswith('~') and not f.startswith('$')]
+
+			# process directories (only immediate children)
+			for subdir in subdirs:
+				full_subdir_path = os.path.join(dirpath, subdir)
+				# Check if we have permission to access this directory
+				if os.access(full_subdir_path, os.R_OK):
+					key = f"{key_counter}" if key_prefix == '' else f"{key_prefix}-{key_counter}"
+					meta = _get_meta(full_subdir_path)
+					tree.append({
+						'key': key,
+						'data': {
+							'id': subdir,
+							'name': meta.get('name') if 'name' in meta else subdir,
+							'meta': meta,
+							'size': None,
+							'type': 'folder'
+						},
+						# 'children': []  # No recursive children
+					})
+					key_counter += 1
+
+			# process files (only immediate children)
+			for filename in filenames:
+				full_file_path = os.path.join(dirpath, filename)
+				# Check if we have permission to access this file
+				if os.access(full_file_path, os.R_OK):
+					key = f"{key_counter}" if key_prefix == '' else f"{key_prefix}-{key_counter}"
+					relative_dirpath = os.path.relpath(dirpath, start=relpath_start)
+					full_file_path = os.path.join(dirpath, filename)
+					file_size = os.path.getsize(full_file_path)
+					file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
+					tree.append({
+						'key': key,
+						'data': {
+							'name': filename,
+							'path': relative_dirpath,
+							'size': get_size_readable(file_size),
+							'type': file_type or 'file'
+						}
+					})
+					key_counter += 1
+
+	except Exception as e:
+		log_exception(e)
+
+	# sort the tree by 'type' (folders first) and 'name'
+	tree = sorted(tree, key=lambda x: (x['data']['type'] != 'folder', x['data']['name']))
+
+	return tree
+
 # 
 # Initialize users
 #
@@ -566,26 +639,36 @@ class DatasetCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.write(message(400, 'Missing required field(s): %s' % list(missing_keys)))
 			return
 
-		# create dataset
-		dataset = {**self.DEFAULTS, **data}
-		dataset['_id'] = str(bson.ObjectId())
+		try:
+			# create dataset
+			dataset = {**self.DEFAULTS, **data}
+			dataset['_id'] = str(bson.ObjectId())
 
-		# append creation timestamp to dataset
-		dataset['date_created'] = int(time.time() * 1000)
+			# append creation timestamp to dataset
+			dataset['date_created'] = int(time.time() * 1000)
 
-		# append the current user id
-		dataset['user_id'] = self.current_user['_id']
+			# append the current user id
+			dataset['user_id'] = self.current_user['_id']
 
-		# save dataset
-		await db.dataset_create(dataset)
+			# save dataset
+			await db.dataset_create(dataset)
 
-		# create dataset directory
-		dataset_dir = os.path.join(env.DATASETS_DIR, dataset['_id'])
-		os.makedirs(dataset_dir)
+			# create dataset directory
+			dataset_dir = os.path.join(env.DATASETS_DIR, dataset['_id'])
+			os.makedirs(dataset_dir)
 
-		self.set_status(201)
-		self.set_header('content-type', 'application/json')
-		self.write(tornado.escape.json_encode({ '_id': dataset['_id'] }))
+			# save meta file
+			meta = backend.FileMeta(os.path.join(dataset_dir, 'meta.json'))
+			await meta.create(dataset)
+
+			self.set_status(201)
+			self.set_header('content-type', 'application/json')
+			self.write(tornado.escape.json_encode({ '_id': dataset['_id'] }))
+		except Exception as e:
+			log_exception(e)
+			self.set_status(404)
+			self.write(message(404, 'Failed to create dataset \"%s\"' % id))
+
 
 
 
@@ -647,6 +730,11 @@ class DatasetEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			# save dataset
 			await db.dataset_update(id, dataset)
+
+			# save meta file
+			dataset_dir = os.path.join(env.DATASETS_DIR, dataset['_id'])
+			meta = backend.FileMeta(os.path.join(dataset_dir, 'meta.json'))
+			await meta.create(dataset)
 
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
@@ -910,29 +998,38 @@ class WorkflowCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			self.write(message(400, 'Missing required field(s): %s' % list(missing_keys)))
 			return
 
-		# create workflow
-		workflow = {**self.DEFAULTS, **data, **{ 'status': 'nascent' }}
-		workflow['_id'] = str(bson.ObjectId())
+		try:
+			# create workflow
+			workflow = {**self.DEFAULTS, **data, **{ 'status': 'nascent' }}
+			workflow['_id'] = str(bson.ObjectId())
 
-		# append creation timestamp to workflow
-		workflow['date_created'] = int(time.time() * 1000)
+			# append creation timestamp to workflow
+			workflow['date_created'] = int(time.time() * 1000)
 
-		# transform pipeline name to lowercase
-		workflow['pipeline'] = workflow['pipeline'].lower() 
+			# transform pipeline name to lowercase
+			workflow['pipeline'] = workflow['pipeline'].lower() 
 
-		# append the current user id
-		workflow['user_id'] = self.current_user['_id']
+			# append the current user id
+			workflow['user_id'] = self.current_user['_id']
 
-		# save workflow
-		await db.workflow_create(workflow)
+			# save workflow
+			await db.workflow_create(workflow)
 
-		# create workflow directory
-		workflow_dir = os.path.join(env.WORKFLOWS_DIR, workflow['_id'])
-		os.makedirs(workflow_dir)
+			# create workflow directory
+			workflow_dir = os.path.join(env.WORKFLOWS_DIR, workflow['_id'])
+			os.makedirs(workflow_dir)
 
-		self.set_status(201)
-		self.set_header('content-type', 'application/json')
-		self.write(tornado.escape.json_encode({ '_id': workflow['_id'] }))
+			# save meta file
+			meta = backend.FileMeta(os.path.join(workflow_dir, 'meta.json'))
+			await meta.create(workflow)
+
+			self.set_status(201)
+			self.set_header('content-type', 'application/json')
+			self.write(tornado.escape.json_encode({ '_id': workflow['_id'] }))
+		except Exception as e:
+			log_exception(e)
+			self.set_status(404)
+			self.write(message(404, 'Failed to create workflow \"%s\"' % id))
 
 
 
@@ -956,10 +1053,6 @@ class WorkflowEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 		db = self.settings['db']
 
 		try:
-			# TODO!! TAKE INTO ACCOUNT que un usuario puede editar el workflow de otro usuario.
-			# haz que obtenga sólo los workflows creados por el usuario.
-			# IGUAL PASA CON EL DATASET
-
 			# get workflow
 			workflow = await db.workflow_get(id)
 
@@ -998,6 +1091,11 @@ class WorkflowEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			# save workflow
 			await db.workflow_update(id, workflow)
+
+			# save meta file
+			workflow_dir = os.path.join(env.WORKFLOWS_DIR, workflow['_id'])
+			meta = backend.FileMeta(os.path.join(workflow_dir, 'meta.json'))
+			await meta.create(workflow)
 
 			self.set_status(200)
 			self.set_header('content-type', 'application/json')
@@ -1378,6 +1476,95 @@ class OutputArchiveDownloadHandler(CORSAuthMixin, tornado.web.StaticFileHandler)
 		output = os.path.join(id, env.OUTPUTS_DIR, filename)
 		return output
 	
+
+
+
+#-------------------------------------
+# VOLUMES Classes
+#-------------------------------------
+
+class VolumeQueryHandler(CORSAuthMixin, tornado.web.RequestHandler):
+
+	@role_required([])
+	async def get(self, volume_dir=''):
+
+		# get the files/folders from the datasets and workflows
+		def _get_workspace(shared_volumes, volume_dir):
+			# prepare a list to collect file tree outputs from each volume
+			all_outputs = []
+			# split the "path" into components
+			# delete the first folder of path
+			volume_dir_components = volume_dir.split('/') if volume_dir else []
+			if volume_dir_components:
+				first_folder = volume_dir_components[0]
+				rest_of_volume_dir = '/'.join(volume_dir_components[1:])
+				matched_volumes = [v for v in shared_volumes if v.endswith(first_folder)]
+			else:
+				rest_of_volume_dir = volume_dir
+				matched_volumes = shared_volumes
+			# iterate over each matched volumes and build its file tree
+			for volume in matched_volumes:
+				# join the provided path with the current volume
+				output_dir = os.path.join(volume, rest_of_volume_dir)
+				# check if the directory exists
+				if os.path.exists(output_dir):
+					outputs = scan_directory(output_dir, relpath_start=output_dir)
+					all_outputs.append({
+						'volume': output_dir,
+						'files': outputs
+					})
+			# retrieve volume files
+			return all_outputs
+
+		# get the files/folders from the shared volumes
+		def _get_volumes(shared_volumes, volume_dir):
+			# get the shared volumes from the environment variable and split them
+			# shared_volumes = env.SHARED_VOLUMES.split(';')
+			# prepare a list to collect file tree outputs from each volume
+			all_outputs = []
+			# split the "path" into components
+			# delete the first folder of path
+			volume_dir_components = volume_dir.split('/') if volume_dir else []
+			if volume_dir_components:
+				first_folder = volume_dir_components[0]
+				rest_of_volume_dir = '/'.join(volume_dir_components[1:])
+				matched_volumes = [v for v in shared_volumes if v.endswith(first_folder)]
+			else:
+				rest_of_volume_dir = volume_dir
+				matched_volumes = shared_volumes
+			# iterate over each matched volumes and build its file tree
+			for volume in matched_volumes:
+				# join the provided path with the current volume
+				output_dir = os.path.join(volume, rest_of_volume_dir)
+				# check if the directory exists
+				if os.path.exists(output_dir):
+					outputs = scan_directory(output_dir, relpath_start=output_dir)
+					all_outputs.append({
+						'volume': output_dir,
+						'files': outputs
+					})
+			# retrieve volume files
+			return all_outputs
+
+		try:
+			# get the files/folders from the datasets
+			outputs_workspace = _get_workspace([env.DATASETS_DIR, env.WORKFLOWS_DIR], volume_dir)
+
+			# get the shared volumes from the environment variable
+			outputs_shared = _get_volumes(env.SHARED_VOLUMES.split(';'), volume_dir)
+
+			# join datasets + workflows + shared volumes
+			all_outputs = outputs_workspace + outputs_shared
+
+			# respond with the combined file trees for all volumes
+			self.set_status(200)
+			self.set_header('content-type', 'application/json')
+			self.write(tornado.escape.json_encode(all_outputs))
+		except Exception as e:
+			log_exception(e)
+			self.set_status(404)
+			self.write(message(404, 'Failed to get volume from path \"%s\"' % (volume_dir)))
+
 
 
 
@@ -1854,6 +2041,8 @@ if __name__ == '__main__':
 		(r'/api/outputs/single/(.+)/download', OutputDownloadHandler, dict(path=env.BASE_DIR['workspace'])),
 		(r'/api/outputs/multiple/([a-zA-Z0-9-]+)/([0-9]+)/download', OutputMultipleDownloadHandler),
 		(r'/api/outputs/archive/(.+)/download', OutputArchiveDownloadHandler, dict(path=env.WORKFLOWS_DIR)),
+
+		(r'/api/volumes/?(.*)', VolumeQueryHandler),
 
 		(r'/api/tasks', TaskQueryHandler),
 		(r'/api/tasks/([a-zA-Z0-9-]+)/log', TaskLogHandler),

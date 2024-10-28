@@ -43,7 +43,7 @@ bash dataset/query.sh http://localhost:8081 token.txt
 
 2. Create a dataset instance
 ```
-bash dataset/create.sh http://localhost:8081 token.txt '{"description": "Short description of dataset"}' dataset_id.txt
+bash dataset/create.sh http://localhost:8081 token.txt '{"name": "dataset 1", "description": "Short description of dataset"}' dataset_id.txt
 ```
 
 3. Upload dataset data for a dataset instance on a nextflow server
@@ -78,7 +78,7 @@ bash dataset/delete.sh http://localhost:8081 token.txt dataset_id.txt
 
 ### Test example for nf-PTM-compass using ReCom dataset
 ```
-bash dataset/create.sh http://localhost:8081 token.txt '{"description": "ReCom dataset_1 (TMT_FA)"}' dataset_id.txt
+bash dataset/create.sh http://localhost:8081 token.txt '{"name": "TMT_FA_dataset_1", "description": "ReCom dataset_1 (TMT_FA)"}' dataset_id.txt
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "recom_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/recom_files/TMT_FA_1_fr1.txt"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "recom_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/recom_files/TMT_FA_1_fr2.txt"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "exp_table" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/exp_table.txt"
@@ -90,7 +90,7 @@ bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path
 
 ### Test example for nf-PTM-compass using RefMod dataset
 ```
-bash dataset/create.sh http://localhost:8081 token.txt '{"description": "RefMod dataset_1 (BA_DIA)"}' dataset_id.txt
+bash dataset/create.sh http://localhost:8081 token.txt '{"name"; "DIA_BA_dataset_1", "description": "RefMod dataset_1 (BA_DIA)"}' dataset_id.txt
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "refmod_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test2/inputs/refmod_files/BA_1_REFRAG.tsv"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "refmod_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test2/inputs/refmod_files/BA_2_REFRAG.tsv"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "exp_table" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test2/inputs/exp_table.txt"
@@ -110,7 +110,8 @@ bash workflow/query.sh http://localhost:8081 token.txt
 2. Create a workflow instance
 ```
 bash workflow/create.sh http://localhost:8081 token.txt \
-'{"pipeline": "https://github.com/CNIC-Proteomics/nf-PTM-compass",
+'{"name": "PTM-compass",
+"pipeline": "https://github.com/CNIC-Proteomics/nf-PTM-compass",
 "revision": "0.1.0",
 "profiles": "guest",
 "description": "PTM-compass workflow"
@@ -120,10 +121,11 @@ bash workflow/create.sh http://localhost:8081 token.txt \
 3. Edit a workflow instance
 ```
 bash workflow/edit.sh http://localhost:8081 token.txt workflow_id.txt \
-'{"pipeline": "https://github.com/CNIC-Proteomics/nf-PTM-compass",
+'{"name": "PTM-compass",
+"pipeline": "https://github.com/CNIC-Proteomics/nf-PTM-compass",
 "revision": "0.1.0",
 "profiles": "guest",
-"description": "PTM-compass workflow"
+"description": "PTM-compass workflow 2"
 }'
 ```
 
@@ -212,4 +214,27 @@ bash output/delete.sh http://localhost:8081 token.txt workflow_id.txt 1
 ```
 
 
+# Command lines for volumes
 
+1. Get a list of all shared volumes for a given path on a nextflow server
+```
+bash volume/get.sh http://localhost:8081 token.txt
+```
+
+2. Get a list of files within datasets
+```
+bash volume/get.sh http://localhost:8081 token.txt _datasets
+bash volume/get.sh http://localhost:8081 token.txt _datasets/671fa5d095d27c530eaa46bc
+```
+
+3. Get a list of files within workflows
+```
+bash volume/get.sh http://localhost:8081 token.txt _workflows
+bash volume/get.sh http://localhost:8081 token.txt _workflows/671faa9d4b314941f82b4421
+```
+
+4. Get a list of files within shared volumes
+```
+bash volume/get.sh http://localhost:8081 token.txt unit
+bash volume/get.sh http://localhost:8081 token.txt unit/UNIDAD/Softwares
+```
