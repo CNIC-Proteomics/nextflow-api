@@ -82,20 +82,22 @@ def build_tree(path, relpath_start='', key_prefix=''):
 	
 	# get the dir, subdir and files from a given path
 	for dirpath, subdirs, filenames in os.walk(path):
-		# exclude hidden files and directories
-		subdirs[:] = [d for d in subdirs if not d.startswith('.')]
-		filenames = [f for f in filenames if not f.startswith('.')]
+		# exclude hidden files, directories, and files starting with "~", "$"
+		subdirs[:] = [d for d in subdirs if not d.startswith('.') and not d.startswith('~') and not d.startswith('$')]
+		filenames = [f for f in filenames if not f.startswith('.') and not f.startswith('~') and not f.startswith('$')]
 
 		# process directories
 		for subdir in subdirs:
 			key = f"{key_counter}" if key_prefix == '' else f"{key_prefix}-{key_counter}"
 			full_subdir_path = os.path.join(dirpath, subdir)
+			is_link = os.path.islink(full_subdir_path)
 			tree.append({
 				'key': key,
 				'data': {
 					'name': subdir,
 					'size': None,
-					'type': 'folder'
+					'type': 'folder',
+					'is_link': is_link
 				},
 				'children': build_tree(full_subdir_path, relpath_start, key)
 			})
@@ -106,15 +108,18 @@ def build_tree(path, relpath_start='', key_prefix=''):
 			key = f"{key_counter}" if key_prefix == '' else f"{key_prefix}-{key_counter}"
 			relative_dirpath = os.path.relpath(dirpath, start=relpath_start)
 			full_file_path = os.path.join(dirpath, filename)
-			file_size = os.path.getsize(full_file_path)
-			file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
+			is_link = os.path.islink(full_file_path)
+			file_size = os.path.getsize(full_file_path) if not is_link else 0
+			# file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
+			file_type = 'file'
 			tree.append({
 				'key': key,
 				'data': {
 					'name': filename,
 					'path': relative_dirpath,
 					'size': get_size_readable(file_size),
-					'type': file_type or 'file'
+					'type': file_type,
+					'is_link': is_link
 				}
 			})
 			key_counter += 1
@@ -131,7 +136,7 @@ def build_tree(path, relpath_start='', key_prefix=''):
 #
 # Extract the files/folders from a path. Only retrieve the contents of the current directory
 #
-def scan_directory(path, relpath_start='', key_prefix=''):
+def scan_directory(path):
 
 	# Get the meta info if exists
 	def _get_meta(full_subdir_path):
@@ -143,7 +148,6 @@ def scan_directory(path, relpath_start='', key_prefix=''):
 		return meta
 
 	tree = []
-	key_counter = 0
 
 	try:
 		# get the directories and files in the given path (no recursion)
@@ -155,43 +159,42 @@ def scan_directory(path, relpath_start='', key_prefix=''):
 			# process directories (only immediate children)
 			for subdir in subdirs:
 				full_subdir_path = os.path.join(dirpath, subdir)
-				# Check if we have permission to access this directory
+				is_link = os.path.islink(full_subdir_path)
+				# check if we have permission to access this directory
 				if os.access(full_subdir_path, os.R_OK):
-					key = f"{key_counter}" if key_prefix == '' else f"{key_prefix}-{key_counter}"
 					meta = _get_meta(full_subdir_path)
 					tree.append({
-						'key': key,
+						'key': full_subdir_path,
 						'data': {
 							'id': subdir,
 							'name': meta.get('name') if 'name' in meta else subdir,
 							'meta': meta,
 							'size': None,
-							'type': 'folder'
+							'type': 'folder',
+							'is_link': is_link
 						},
 						# 'children': []  # No recursive children
 					})
-					key_counter += 1
 
 			# process files (only immediate children)
 			for filename in filenames:
 				full_file_path = os.path.join(dirpath, filename)
 				# Check if we have permission to access this file
 				if os.access(full_file_path, os.R_OK):
-					key = f"{key_counter}" if key_prefix == '' else f"{key_prefix}-{key_counter}"
-					relative_dirpath = os.path.relpath(dirpath, start=relpath_start)
 					full_file_path = os.path.join(dirpath, filename)
-					file_size = os.path.getsize(full_file_path)
-					file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
+					is_link = os.path.islink(full_file_path)
+					file_size = os.path.getsize(full_file_path) if not is_link else 0
+					# file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
+					file_type = 'file'
 					tree.append({
-						'key': key,
+						'key': full_file_path,
 						'data': {
 							'name': filename,
-							'path': relative_dirpath,
 							'size': get_size_readable(file_size),
-							'type': file_type or 'file'
+							'type': file_type,
+							'is_link': is_link
 						}
 					})
-					key_counter += 1
 
 	except Exception as e:
 		log_exception(e)
@@ -859,6 +862,74 @@ class DatasetUploadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 
 
+class DatasetLinkHandler(CORSAuthMixin, tornado.web.RequestHandler):
+
+	REQUIRED_KEYS = set([
+		'name',
+		'path'
+	])
+
+	@role_required([])
+	async def post(self, id):
+		db = self.settings['db']
+
+		# make sure request body is valid
+		try:
+			data = tornado.escape.json_decode(self.request.body)
+			missing_keys = self.REQUIRED_KEYS - data.keys()
+		except json.JSONDecodeError:
+			self.set_status(422)
+			self.write(message(422, 'Ill-formatted JSON'))
+			return
+
+		if missing_keys:
+			self.set_status(400)
+			self.write(message(400, 'Missing required field(s): %s' % list(missing_keys)))
+			return
+
+		try:
+			# get dataset
+			dataset = await db.dataset_get(id)
+		except Exception as e:
+			log_exception(e)
+			self.set_status(404)
+			self.write(message(404, 'Dataset \"%s\" was not found' % id))
+
+		try:
+			# to track data
+			link_name = data['name']
+			link_path = data['path']
+
+			# initialize input directory
+			input_dir = os.path.join(env.DATASETS_DIR, id)
+			os.makedirs(input_dir, exist_ok=True)
+
+			# check if link already exists
+			link_filename = os.path.join(input_dir, link_name)
+			if os.path.exists(link_filename):
+				self.set_status(400)
+				self.write(message(400, 'Link \"%s\" already exists' % link_filename))
+				return
+
+			# create symbolic link
+			os.symlink(link_path, link_filename)
+
+			# increase n_files
+			dataset['n_files'] += 1
+
+			# save dataset
+			await db.dataset_update(id, dataset)
+
+			self.set_status(200)
+			self.write(message(200, 'Link to \"%s\" created successfully at \"%s\" successfully' % (link_path, link_filename)))
+		except Exception as e:
+			log_exception(e)
+			self.set_status(404)
+			self.write(message(404, 'Failed to craete link for dataset \"%s\"' % id))
+
+
+
+
 class DatasetDeleteHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 	REQUIRED_KEYS = set([
@@ -902,11 +973,16 @@ class DatasetDeleteHandler(CORSAuthMixin, tornado.web.RequestHandler):
 				f_path = os.path.join(input_dir, filename)
 				# remove the file and decrease the number of files
 				if os.path.exists(f_path):
-					# if filename is a folder, delete ir
-					if os.path.isdir(f_path):
+ 					# handle symbolic links
+					if os.path.islink(f_path):
+						os.unlink(f_path)
+						dataset['n_files'] -= 1
+					# handle directories
+					elif os.path.isdir(f_path):
 						fc = sum(len(files) for _, _, files in os.walk(f_path)) # conunt the num files
 						shutil.rmtree(f_path, ignore_errors=True)
 						dataset['n_files'] -= fc # descrease the num. files that has been deleted
+					# handle regular files
 					else:
 						os.remove(f_path)
 						dataset['n_files'] -= 1 # decrease in one file
@@ -1488,57 +1564,25 @@ class VolumeQueryHandler(CORSAuthMixin, tornado.web.RequestHandler):
 	@role_required([])
 	async def get(self, volume_dir=''):
 
-		# get the files/folders from the datasets and workflows
-		def _get_workspace(shared_volumes, volume_dir):
-			# prepare a list to collect file tree outputs from each volume
-			all_outputs = []
-			# split the "path" into components
-			# delete the first folder of path
-			volume_dir_components = volume_dir.split('/') if volume_dir else []
-			if volume_dir_components:
-				first_folder = volume_dir_components[0]
-				rest_of_volume_dir = '/'.join(volume_dir_components[1:])
-				matched_volumes = [v for v in shared_volumes if v.endswith(first_folder)]
-			else:
-				rest_of_volume_dir = volume_dir
-				matched_volumes = shared_volumes
-			# iterate over each matched volumes and build its file tree
-			for volume in matched_volumes:
-				# join the provided path with the current volume
-				output_dir = os.path.join(volume, rest_of_volume_dir)
-				# check if the directory exists
-				if os.path.exists(output_dir):
-					outputs = scan_directory(output_dir, relpath_start=output_dir)
-					all_outputs.append({
-						'volume': output_dir,
-						'files': outputs
-					})
-			# retrieve volume files
-			return all_outputs
-
 		# get the files/folders from the shared volumes
 		def _get_volumes(shared_volumes, volume_dir):
 			# get the shared volumes from the environment variable and split them
-			# shared_volumes = env.SHARED_VOLUMES.split(';')
 			# prepare a list to collect file tree outputs from each volume
 			all_outputs = []
 			# split the "path" into components
 			# delete the first folder of path
 			volume_dir_components = volume_dir.split('/') if volume_dir else []
 			if volume_dir_components:
-				first_folder = volume_dir_components[0]
-				rest_of_volume_dir = '/'.join(volume_dir_components[1:])
-				matched_volumes = [v for v in shared_volumes if v.endswith(first_folder)]
+				matched_volumes = [v for v in shared_volumes if volume_dir.startswith(v)]
 			else:
-				rest_of_volume_dir = volume_dir
 				matched_volumes = shared_volumes
 			# iterate over each matched volumes and build its file tree
 			for volume in matched_volumes:
 				# join the provided path with the current volume
-				output_dir = os.path.join(volume, rest_of_volume_dir)
+				output_dir = os.path.join(volume, volume_dir)
 				# check if the directory exists
 				if os.path.exists(output_dir):
-					outputs = scan_directory(output_dir, relpath_start=output_dir)
+					outputs = scan_directory(output_dir)
 					all_outputs.append({
 						'volume': output_dir,
 						'files': outputs
@@ -1548,7 +1592,7 @@ class VolumeQueryHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 		try:
 			# get the files/folders from the datasets
-			outputs_workspace = _get_workspace([env.DATASETS_DIR, env.WORKFLOWS_DIR], volume_dir)
+			outputs_workspace = _get_volumes([env.DATASETS_DIR, env.WORKFLOWS_DIR], volume_dir)
 
 			# get the shared volumes from the environment variable
 			outputs_shared = _get_volumes(env.SHARED_VOLUMES.split(';'), volume_dir)
@@ -2026,6 +2070,7 @@ if __name__ == '__main__':
 		(r'/api/datasets/0', DatasetCreateHandler),
 		(r'/api/datasets/([a-zA-Z0-9-]+)', DatasetEditHandler),
 		(r'/api/datasets/([a-zA-Z0-9-]+)/([a-zA-Z-]+)/([a-zA-Z0-9-_]+)/upload', DatasetUploadHandler),
+		(r'/api/datasets/([a-zA-Z0-9-]+)/link', DatasetLinkHandler),
 		(r'/api/datasets/([a-zA-Z0-9-]+)/delete', DatasetDeleteHandler),
 
 		(r'/api/workflows', WorkflowQueryHandler),

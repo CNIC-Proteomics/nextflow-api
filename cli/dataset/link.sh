@@ -1,5 +1,5 @@
 #!/bin/bash
-# Edit a dataset instance on a nextflow server.
+# Link dataset data for a dataset instance on a nextflow server.
 
 # parse command-line arguments
 if [[ $# != 4 ]]; then
@@ -23,7 +23,7 @@ TOKEN=$(cat "${TOKEN_FILE}")
 
 
 
-# read the token from the file
+# read the id from the file
 if [[ ! -f "${ID_FILE}" ]]; then
 	echo "Id file not found: ${ID_FILE}"
 	exit -1
@@ -32,11 +32,11 @@ ID=$(cat "${ID_FILE}")
 
 
 
-# update a dataset instance
+# link data to a dataset instance
 curl -s \
 	-X POST \
 	-H "Authorization: Bearer ${TOKEN}" \
 	-d "${DATA}" \
-	${URL}/api/datasets/${ID}
+	${URL}/api/datasets/${ID}/link
 
 echo

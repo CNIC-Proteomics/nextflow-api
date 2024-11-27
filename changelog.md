@@ -1,4 +1,23 @@
 ___
+## 1.3
+```
+DATE: 2024_XX
+```
+
+### Highlights
+
++ Add *volumes* REST api.
+
+### Changes in detail
+
++ Add *volumes* method to query the files from the shared volumes.
+
++ Add client to execute the *volumes* REST api.
+
++ Add the MongoDB port as constant
+
+
+___
 ## 1.2
 ```
 DATE: 2024_10
@@ -11,6 +30,7 @@ DATE: 2024_10
 + Exception logs are printed by standard output.
 
 ### Changes in detail
+
 
 ___
 ## 1.1

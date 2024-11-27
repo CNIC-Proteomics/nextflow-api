@@ -51,6 +51,8 @@ bash dataset/create.sh http://localhost:8081 token.txt '{"name": "dataset 1", "d
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "directory-path" "raw_files" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-SearchEngine/tests/test_Raws_1/inputs/raw_files/Jurkat_Fr1.raw"
 
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "exp_table" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/exp_table.txt"
+
+bash dataset/link.sh http://localhost:8081 token.txt dataset_id.txt '{"path": "/mnt/shared/unit/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Heteroplasmic/inputs/experimental_table.tsv", "name": "experimental_table.tsv"}'
 ```
 
 4. Remove a data file for a dataset instance on a nextflow server
@@ -58,6 +60,8 @@ bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path
 bash dataset/remove.sh http://localhost:8081 token.txt dataset_id.txt '{"filenames": ["inputs/raw_files/Jurkat_Fr1.raw"]}'
 
 bash dataset/remove.sh http://localhost:8081 token.txt dataset_id.txt '{"filenames": ["exp_table.txt"]}'
+
+bash dataset/remove.sh http://localhost:8081 token.txt dataset_id.txt '{"filenames": ["experimental_table.tsv"]}'
 ```
 
 5. Get a dataset instance on a nextflow server
@@ -86,6 +90,10 @@ bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "params-file" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/params.ini"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "sitelist_file" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/sitelist.txt"
 bash dataset/upload.sh http://localhost:8081 token.txt dataset_id.txt "file-path" "groupmaker_file" "/mnt/tierra/U_Proteomica/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Recom_1/inputs/groupmaker.txt"
+```
+```
+bash dataset/link.sh http://localhost:8081 token.txt dataset_id.txt '{"path": "/mnt/shared/unit/UNIDAD/DatosCrudos/Jose_Antonio_Enriquez/Ratones_Heteroplasmicos/HF/PTM_JMR_withNextflow/nf-SearchEngine/results/heart/modules/mzextractor/01_mz_extractor", "name": "msfragger_files"}'
+bash dataset/link.sh http://localhost:8081 token.txt dataset_id.txt '{"path": "/mnt/shared/unit/UNIDAD/Softwares/jmrodriguezc/nf-PTM-compass/tests/test_Heteroplasmic/inputs/experimental_table.tsv", "name": "exp_table.txt"}'
 ```
 
 ### Test example for nf-PTM-compass using RefMod dataset
@@ -223,18 +231,21 @@ bash volume/get.sh http://localhost:8081 token.txt
 
 2. Get a list of files within datasets
 ```
-bash volume/get.sh http://localhost:8081 token.txt _datasets
-bash volume/get.sh http://localhost:8081 token.txt _datasets/671fa5d095d27c530eaa46bc
+bash volume/get.sh http://localhost:8081 token.txt /workspace/_datasets
+bash volume/get.sh http://localhost:8081 token.txt /workspace/_datasets/671fa5d095d27c530eaa46bc
 ```
 
 3. Get a list of files within workflows
 ```
-bash volume/get.sh http://localhost:8081 token.txt _workflows
-bash volume/get.sh http://localhost:8081 token.txt _workflows/671faa9d4b314941f82b4421
+bash volume/get.sh http://localhost:8081 token.txt /workspace/_workflows
+bash volume/get.sh http://localhost:8081 token.txt /workspace/_workflows/671faa9d4b314941f82b4421
 ```
 
 4. Get a list of files within shared volumes
 ```
-bash volume/get.sh http://localhost:8081 token.txt unit
-bash volume/get.sh http://localhost:8081 token.txt unit/UNIDAD/Softwares
+bash volume/get.sh http://localhost:8081 token.txt /mnt/shared/unit/unit
+bash volume/get.sh http://localhost:8081 token.txt /mnt/shared/unit/unit/UNIDAD/Softwares
+bash volume/get.sh http://localhost:8081 token.txt /mnt/shared/unit/UNIDAD/DatosCrudos/Jose_Antonio_Enriquez/Ratones_Heteroplasmicos/HF/PTM_JMR_withNextflow/nf-SearchEngine/results/heart/modules/decoypyrat/01_decoy_py_rat
 ```
+
+
