@@ -80,7 +80,10 @@ def build_tree(path, relpath_start='', key_prefix=''):
 	tree = []
 	key_counter = 0
 	
-	# get the dir, subdir and files from a given path
+	# Check if the parent folder (path) itself is a symbolic link
+	parent_is_link = True if os.path.islink(path) else False
+
+	# Get the dir, subdir and files from a given path
 	for dirpath, subdirs, filenames in os.walk(path):
 		# exclude hidden files, directories, and files starting with "~", "$"
 		subdirs[:] = [d for d in subdirs if not d.startswith('.') and not d.startswith('~') and not d.startswith('$')]
@@ -91,6 +94,8 @@ def build_tree(path, relpath_start='', key_prefix=''):
 			key = f"{key_counter}" if key_prefix == '' else f"{key_prefix}-{key_counter}"
 			full_subdir_path = os.path.join(dirpath, subdir)
 			is_link = os.path.islink(full_subdir_path)
+			# Stop scanning more subfolders if the parent folder is a link
+			children = [] if parent_is_link else build_tree(full_subdir_path, relpath_start, key)
 			tree.append({
 				'key': key,
 				'data': {
@@ -99,7 +104,7 @@ def build_tree(path, relpath_start='', key_prefix=''):
 					'type': 'folder',
 					'is_link': is_link
 				},
-				'children': build_tree(full_subdir_path, relpath_start, key)
+				'children': children
 			})
 			key_counter += 1
 
