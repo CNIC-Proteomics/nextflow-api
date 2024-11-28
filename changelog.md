@@ -1,7 +1,7 @@
 ___
 ## 1.3
 ```
-DATE: 2024_XX
+DATE: 2024_11
 ```
 
 ### Highlights
