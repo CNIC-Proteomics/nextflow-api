@@ -1,6 +1,10 @@
 import os
 import ipaddress
 
+# Nextflow variables -----
+NXF_API_HOME = os.environ.get('NXF_API_HOME', '/opt/nextflow-api')
+
+
 
 # Nextflow variables -----
 NXF_EXECUTOR = os.environ.get('NXF_EXECUTOR', default='local')

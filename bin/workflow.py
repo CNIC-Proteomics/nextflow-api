@@ -95,7 +95,7 @@ def run_workflow(workflow, attempt, output_dir, resume):
 
 
 def save_output(workflow, attempt, output_dir):
-	cmd = os.path.join( os.getcwd(), 'scripts/kube-save.sh')
+	cmd = os.path.join( env.NXF_API_HOME, 'scripts/kube-save.sh')
 	return subprocess.Popen(
 		[cmd, str(workflow['_id']), str(attempt['id']), output_dir],
 		stdout=subprocess.PIPE,
