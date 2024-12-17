@@ -1,4 +1,15 @@
 ___
+## 1.4
+```
+DATE: 2024_12
+```
+
+### Changes in detail
+
++ Fixing a bug creating the global output.
+
+
+___
 ## 1.3
 ```
 DATE: 2024_11
