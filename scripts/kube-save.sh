@@ -26,5 +26,5 @@ done
 # rm -f ${SRC_PATH}/reports/trace.txt.*
 
 # create archive of output data
+# echo -n "cd ${DST_DIRNAME} && tar -czf \"outputs-${ID}-${ATTEMPT}.tar.gz\" $(basename ${SRC_PATH})/*"
 cd ${DST_DIRNAME} && tar -czf "outputs-${ID}-${ATTEMPT}.tar.gz" $(basename ${SRC_PATH})/*
-# cd ${SRC_PATH} && tar -czf "../outputs-${ID}-${ATTEMPT}.tar.gz" *
