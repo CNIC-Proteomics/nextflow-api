@@ -1,5 +1,6 @@
 import os
 import ipaddress
+import re
 
 # Nextflow variables -----
 NXF_API_HOME = os.environ.get('NXF_API_HOME', '/opt/nextflow-api')
@@ -14,19 +15,21 @@ PVC_NAME = os.environ.get('PVC_NAME')
 
 
 # Define working directories -----
+DATASPACE_HOME = os.environ.get('WORKSPACE_HOME', '/workspace') # for now, the dataspace is within the workspace
 WORKSPACE_HOME = os.environ.get('WORKSPACE_HOME', '/workspace')
+OUTSPACE_HOME = os.environ.get('OUTSPACE_HOME', '/outspace')
 BASE_DIRS = {
-	'k8s':    { 'workspace': WORKSPACE_HOME, 'dataspace': '/dataspace'},
-	'local':  { 'workspace': WORKSPACE_HOME, 'dataspace': '/dataspace'},
-	'pbspro': { 'workspace': WORKSPACE_HOME, 'dataspace': '/dataspace'},
+	'k8s':    { 'dataspace': DATASPACE_HOME, 'workspace': WORKSPACE_HOME, 'outspace': OUTSPACE_HOME },
+	'local':  { 'dataspace': DATASPACE_HOME, 'workspace': WORKSPACE_HOME, 'outspace': OUTSPACE_HOME },
+	'pbspro': { 'dataspace': DATASPACE_HOME, 'workspace': WORKSPACE_HOME, 'outspace': OUTSPACE_HOME },
 }
 BASE_DIR = BASE_DIRS[NXF_EXECUTOR]
 
-DATASETS_DIR = os.path.join(BASE_DIR['workspace'], '_datasets')
+DATASETS_DIR = os.path.join(BASE_DIR['dataspace'], '_datasets')
 WORKFLOWS_DIR = os.path.join(BASE_DIR['workspace'], '_workflows')
 TRACES_DIR = os.path.join(BASE_DIR['workspace'], '_traces')
 MODELS_DIR = os.path.join(BASE_DIR['workspace'], '_models')
-OUTPUTS_DIR = ''
+OUTPUTS_DIR = os.path.join(BASE_DIR['outspace'], '')
 
 
 
@@ -39,14 +42,17 @@ HOST_IP = os.environ.get('HOST_IP')
 CORS_HOSTS = [f"http://localhost:{PORT_APP}"]
 
 # append an external IP host from environment
-def is_valid_ip(ip_str):
+def is_valid_host(host_str):
+	# check if it's a valid IP
 	try:
-		# Intenta crear un objeto IPv4Address o IPv6Address
-		ipaddress.ip_address(ip_str)
+		ipaddress.ip_address(host_str)
 		return True
 	except ValueError:
-		return False
-if HOST_IP is not None and is_valid_ip(HOST_IP):
+		pass  # it's not an IP, so check if it's a valid hostname
+	# define a regex for valid hostnames (RFC 1035)
+	hostname_regex = re.compile(r'^(?!-)[A-Za-z0-9.-]{1,253}(?<!-)$')
+	return bool(hostname_regex.match(host_str))
+if HOST_IP is not None and is_valid_host(HOST_IP):
 	CORS_HOSTS.append(f"http://{HOST_IP}:{PORT_APP}")
 print(f'** CORS: {CORS_HOSTS}')
 

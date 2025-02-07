@@ -34,7 +34,7 @@ ID=$(cat "${ID_FILE}")
 # download output data for a workflow instance
 curl -s \
 	-H "Authorization: Bearer ${TOKEN}" \
-	-o "outputs-${ID}-${ATTEMPT}.tar.gz" \
+	-o "outputs-${ID}-${ATTEMPT}.zip" \
 	${URL}/api/outputs/archive/${ID}/${ATTEMPT}/download
 
 echo

@@ -1262,7 +1262,7 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			workflow['n_attempts'] += 1
 
 			# set up the attempt directory
-			attempt_dir = os.path.join(env.OUTPUTS_DIR, str(workflow['n_attempts']))
+			attempt_dir = os.path.join(id, str(workflow['n_attempts']))
 
 			# update attempt execution
 			attempt = {
@@ -1276,11 +1276,11 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			await db.workflow_update(id, workflow)
 
-			# copy nextflow.config from nextflow configration folder
-			output_dir = os.path.join(env.WORKFLOWS_DIR, id, attempt_dir)
-			os.makedirs(output_dir, exist_ok=True)
+			# copy nextflow.config from nextflow configuration folder
+			workflow_dir = os.path.join(env.WORKFLOWS_DIR, attempt_dir)
+			os.makedirs(workflow_dir, exist_ok=True)
 			src = os.path.join(env.NXF_CONF, 'nextflow.config')
-			dst = os.path.join(output_dir, 'nextflow.config')
+			dst = os.path.join(workflow_dir, 'nextflow.config')
 
 			if os.path.exists(dst):
 				os.remove(dst)   
@@ -1292,10 +1292,14 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			with open(dst, 'a') as f:
 				weblog_url = 'http://%s:%d/api/tasks' % (socket.gethostbyname(socket.gethostname()), tornado.options.options.port)
 				f.write('weblog { enabled = true\n url = \"%s\" }\n' % (weblog_url))
-				f.write('k8s { launchDir = \"%s\" }\n' % (output_dir))
+				f.write('k8s { launchDir = \"%s\" }\n' % (workflow_dir))
+
+			# set up the output directory
+			output_dir = os.path.join(env.OUTPUTS_DIR, attempt_dir)
+			os.makedirs(output_dir, exist_ok=True)
 
 			# launch workflow as a child process
-			p = mp.Process(target=Workflow.launch, args=(db, workflow, attempt, output_dir, self.resume))
+			p = mp.Process(target=Workflow.launch, args=(db, workflow, attempt, workflow_dir, output_dir, self.resume))
 			p.start()
 
 			self.set_status(200)
@@ -1362,7 +1366,7 @@ class WorkflowLogHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			attempt = workflow['attempts'][n_attempt]
 
 			# get append data if it exists
-			log_file = os.path.join(env.WORKFLOWS_DIR, id, env.OUTPUTS_DIR, attempt['output_dir'], '.workflow.log')
+			log_file = os.path.join(env.WORKFLOWS_DIR, attempt['output_dir'], '.workflow.log')
 			if os.path.exists(log_file):
 				f = open(log_file)
 				log = ''.join(f.readlines())
@@ -1399,7 +1403,7 @@ class WorkflowLogHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 # 	def parse_url_path(self, id):
 # 		# provide output file if path is specified, otherwise output data archive
-# 		filename_default = 'outputs-%s-%s.tar.gz' % (id, attempt)
+# 		filename_default = 'outputs-%s-%s.zip' % (id, attempt)
 # 		filename = self.get_query_argument('path', filename_default)
 
 # 		self.set_header('content-disposition', 'attachment; filename=\"%s\"' % filename)
@@ -1423,8 +1427,7 @@ class OutputEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			workflow = await db.workflow_get(id)
 
 			# get output directory from attempt
-			workflow_dir = os.path.join(env.WORKFLOWS_DIR, id)
-			output_dir = os.path.join(workflow_dir, env.OUTPUTS_DIR, attempt)
+			output_dir = os.path.join(env.OUTPUTS_DIR, id, attempt)
 
 			if os.path.exists(output_dir):
 				outputs = build_tree(output_dir, relpath_start=output_dir)
@@ -1450,8 +1453,7 @@ class OutputEditHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			await db.output_delete(id, attempt)
 
 			# get output directory from attempt
-			workflow_dir = os.path.join(env.WORKFLOWS_DIR, id)
-			output_dir = os.path.join(workflow_dir, env.OUTPUTS_DIR, attempt)
+			output_dir = os.path.join(env.OUTPUTS_DIR, id, attempt)
 
 			if os.path.exists(output_dir):  
 				shutil.rmtree(output_dir, ignore_errors=True)
@@ -1478,7 +1480,7 @@ class OutputDownloadHandler(CORSAuthMixin, tornado.web.StaticFileHandler):
 
 		# set up the output from the attempt directory and filename
 		self.set_header('content-disposition', 'attachment; filename=\"%s\"' % filename)
-		output = os.path.join(id, env.OUTPUTS_DIR, filename_default)
+		output = os.path.join(env.OUTPUTS_DIR, id, filename_default)
 		return output
 
 
@@ -1501,8 +1503,7 @@ class OutputMultipleDownloadHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			workflow = await db.workflow_get(id)
 
 			# get output directory from attempt
-			workflow_dir = os.path.join(env.WORKFLOWS_DIR, id)
-			output_dir = os.path.join(workflow_dir, env.OUTPUTS_DIR, attempt)
+			output_dir = os.path.join(env.OUTPUTS_DIR, id, attempt)
 
 			# # create zip archive of outputt files
 			# zipfile = os.path.join(env.TRACES_DIR, 'traces-%s-%s-%s.zip' % (id, attempt, str(bson.ObjectId())) )
@@ -1549,12 +1550,12 @@ class OutputArchiveDownloadHandler(CORSAuthMixin, tornado.web.StaticFileHandler)
 		(id, attempt) = data.split('/')
 
 		# provide output file if path is specified, otherwise output data archive
-		filename_default = 'outputs-%s-%s.tar.gz' % (id, attempt)
+		filename_default = 'outputs-%s-%s.zip' % (id, attempt)
 		filename = self.get_query_argument('path', filename_default)
 
 		# set up the output from the attempt directory and filename
 		self.set_header('content-disposition', 'attachment; filename=\"%s\"' % filename)
-		output = os.path.join(id, env.OUTPUTS_DIR, filename)
+		output = os.path.join(env.OUTPUTS_DIR, id, filename)
 		return output
 	
 

@@ -17,9 +17,6 @@ for f in $(find ${SRC_PATH} -type l); do
 	cp --remove-destination $(readlink $f) $f
 done
 
-# copy log file into output folder
-# cp ${DST_DIRNAME}/.workflow.log ${SRC_PATH}/workflow.log
-
 # # remove old nextflow reports (except for logs)
 # rm -f ${SRC_PATH}/reports/report.html.*
 # rm -f ${SRC_PATH}/reports/timeline.html.*
@@ -27,4 +24,5 @@ done
 
 # create archive of output data
 # echo -n "cd ${DST_DIRNAME} && tar -czf \"outputs-${ID}-${ATTEMPT}.tar.gz\" $(basename ${SRC_PATH})/*"
-cd ${DST_DIRNAME} && tar -czf "outputs-${ID}-${ATTEMPT}.tar.gz" $(basename ${SRC_PATH})/*
+# cd ${DST_DIRNAME} && tar -czf "outputs-${ID}-${ATTEMPT}.tar.gz" $(basename ${SRC_PATH})/*
+cd ${DST_DIRNAME} && zip -r "outputs-${ID}-${ATTEMPT}.zip" "$(basename ${SRC_PATH})"

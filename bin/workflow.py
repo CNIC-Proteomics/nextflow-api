@@ -14,12 +14,12 @@ def get_run_name(workflow):
 
 
 
-def run_workflow(workflow, attempt, output_dir, resume):
+def run_workflow(workflow, attempt, workflow_dir, output_dir, resume):
 	# save current directory
 	prev_dir = os.getcwd()
 
 	# change to workflow directory
-	os.chdir(output_dir)
+	os.chdir(workflow_dir)
 
 	# prepare command line arguments
 	run_name = get_run_name(workflow)
@@ -27,7 +27,7 @@ def run_workflow(workflow, attempt, output_dir, resume):
 	if env.NXF_EXECUTOR == 'k8s':
 		args = [
 			'nextflow',
-			'-log', os.path.join(output_dir, 'nextflow.log'),
+			'-log', os.path.join(workflow_dir, 'nextflow.log'),
 			'kuberun',
 			workflow['pipeline'],
 			'-ansi-log', 'false',
@@ -41,7 +41,7 @@ def run_workflow(workflow, attempt, output_dir, resume):
 	elif env.NXF_EXECUTOR == 'pbspro':
 		args = [
 			'nextflow',
-			'-log', os.path.join(output_dir, 'nextflow.log'),
+			'-log', os.path.join(workflow_dir, 'nextflow.log'),
 			'run',
 			workflow['pipeline'],
 			'-ansi-log', 'false',
@@ -54,7 +54,7 @@ def run_workflow(workflow, attempt, output_dir, resume):
 	elif env.NXF_EXECUTOR == 'local':
 		args = [
 			'nextflow',
-			'-log', os.path.join(output_dir, 'nextflow.log'),
+			'-log', os.path.join(workflow_dir, 'nextflow.log'),
 			'run',
 			workflow['pipeline'],
 			'-revision', workflow['revision'],
@@ -114,12 +114,12 @@ async def set_property(db, workflow, key, value):
 
 
 
-async def launch_async(db, workflow, attempt, output_dir, resume):
+async def launch_async(db, workflow, attempt, workflow_dir, output_dir, resume):
 	# re-initialize database backend
 	db.initialize()
 
 	# start workflow
-	proc = run_workflow(workflow, attempt, output_dir, resume)
+	proc = run_workflow(workflow, attempt, workflow_dir, output_dir, resume)
 	proc_pid = proc.pid
 	
 	print('%d: saving workflow pid...' % (proc_pid))
@@ -153,8 +153,8 @@ async def launch_async(db, workflow, attempt, output_dir, resume):
 
 
 
-def launch(db, workflow, attempt, output_dir, resume):
-	asyncio.run(launch_async(db, workflow, attempt, output_dir, resume))
+def launch(db, workflow, attempt, workflow_dir, output_dir, resume):
+	asyncio.run(launch_async(db, workflow, attempt, workflow_dir, output_dir, resume))
 
 
 
