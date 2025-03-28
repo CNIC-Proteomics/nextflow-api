@@ -79,7 +79,7 @@ def get_size_readable(size):
 def build_tree(path, relpath_start='', key_prefix=''):
 	tree = []
 	key_counter = 0
-	
+
 	# Check if the parent folder (path) itself is a symbolic link
 	parent_is_link = True if os.path.islink(path) else False
 
@@ -88,6 +88,11 @@ def build_tree(path, relpath_start='', key_prefix=''):
 		# exclude hidden files, directories, and files starting with "~", "$"
 		subdirs[:] = [d for d in subdirs if not d.startswith('.') and not d.startswith('~') and not d.startswith('$')]
 		filenames = [f for f in filenames if not f.startswith('.') and not f.startswith('~') and not f.startswith('$')]
+
+		# identify symlinks that point to directories and update subdirs and filenames
+		symlink_dirs = [f for f in filenames if os.path.islink(os.path.join(dirpath, f)) and os.path.isdir(os.path.join(dirpath, f))]
+		subdirs.extend(symlink_dirs)
+		filenames = [f for f in filenames if f not in symlink_dirs]
 
 		# process directories
 		for subdir in subdirs:
@@ -115,15 +120,13 @@ def build_tree(path, relpath_start='', key_prefix=''):
 			full_file_path = os.path.join(dirpath, filename)
 			is_link = os.path.islink(full_file_path)
 			file_size = os.path.getsize(full_file_path) if not is_link else 0
-			# file_type = mimetypes.guess_type(full_file_path, strict=False)[0]
-			file_type = 'file'
 			tree.append({
 				'key': key,
 				'data': {
 					'name': filename,
 					'path': relative_dirpath,
 					'size': get_size_readable(file_size),
-					'type': file_type,
+					'type': 'file',
 					'is_link': is_link
 				}
 			})
@@ -981,16 +984,16 @@ class DatasetDeleteHandler(CORSAuthMixin, tornado.web.RequestHandler):
  					# handle symbolic links
 					if os.path.islink(f_path):
 						os.unlink(f_path)
-						dataset['n_files'] -= 1
+						dataset['n_files'] = max(0, dataset['n_files'] - 1)  # ensure it doesn't go below 0
 					# handle directories
 					elif os.path.isdir(f_path):
 						fc = sum(len(files) for _, _, files in os.walk(f_path)) # conunt the num files
 						shutil.rmtree(f_path, ignore_errors=True)
-						dataset['n_files'] -= fc # descrease the num. files that has been deleted
+						dataset['n_files'] -= max(0, dataset['n_files'] - fc) # descrease the num. files that has been deleted. ensure it doesn't go below 0
 					# handle regular files
 					else:
 						os.remove(f_path)
-						dataset['n_files'] -= 1 # decrease in one file
+						dataset['n_files'] = max(0, dataset['n_files'] - 1)  # ensure it doesn't go below 0
 				else:
 					raise KeyError('File \"%s\" does not exists' % (filename))
 
