@@ -2064,7 +2064,8 @@ if __name__ == '__main__':
 	os.makedirs(env.DATASETS_DIR, exist_ok=True)
 	os.makedirs(env.TRACES_DIR, exist_ok=True)
 	os.makedirs(env.MODELS_DIR, exist_ok=True)
-
+	os.makedirs(env.OUTPUTS_DIR, exist_ok=True)
+	
 	# initialize api endpoints
 	app = tornado.web.Application([
 		(r'/api/login', LoginHandler),

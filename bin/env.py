@@ -15,7 +15,7 @@ PVC_NAME = os.environ.get('PVC_NAME')
 
 
 # Define working directories -----
-DATASPACE_HOME = os.environ.get('WORKSPACE_HOME', '/workspace') # for now, the dataspace is within the workspace
+DATASPACE_HOME = os.environ.get('WORKSPACE_HOME', '/dataspace')
 WORKSPACE_HOME = os.environ.get('WORKSPACE_HOME', '/workspace')
 OUTSPACE_HOME = os.environ.get('OUTSPACE_HOME', '/outspace')
 BASE_DIRS = {
@@ -29,7 +29,7 @@ DATASETS_DIR = os.path.join(BASE_DIR['dataspace'], '_datasets')
 WORKFLOWS_DIR = os.path.join(BASE_DIR['workspace'], '_workflows')
 TRACES_DIR = os.path.join(BASE_DIR['workspace'], '_traces')
 MODELS_DIR = os.path.join(BASE_DIR['workspace'], '_models')
-OUTPUTS_DIR = os.path.join(BASE_DIR['outspace'], '')
+OUTPUTS_DIR = os.path.join(BASE_DIR['outspace'], '_outputs')
 
 
 
@@ -72,7 +72,7 @@ MONGODB_DB = os.environ.get('MONGODB_DB')
 # jwt variables
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your_jwt_secret')
 JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
-JWT_EXP_DELTA_SECONDS = int(os.environ.get('JWT_EXP_DELTA_SECONDS', 3600))
+JWT_EXP_DELTA_SECONDS = int(os.environ.get('JWT_EXP_DELTA_SECONDS', 14400)) # 4h of user session
 # guest user
 USER_GUEST = os.environ.get('USER_GUEST', 'guest')
 PWD_GUEST = os.environ.get('PWD_GUEST', 'guest')
