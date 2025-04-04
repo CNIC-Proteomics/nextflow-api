@@ -4,6 +4,7 @@ import asyncio
 import os
 import signal
 import subprocess
+import psutil
 
 import env
 
@@ -83,8 +84,6 @@ def run_workflow(workflow, attempt, workflow_dir, output_dir, resume):
 	if resume:
 		args += ['-resume']
 
-	print(args)
-
 	# launch workflow asynchronously
 	proc = subprocess.Popen(
 		args,
@@ -126,7 +125,7 @@ async def launch_async(db, workflow, attempt, workflow_dir, output_dir, resume):
 	# start workflow
 	proc = run_workflow(workflow, attempt, workflow_dir, output_dir, resume)
 	proc_pid = proc.pid
-	
+
 	print('%d: saving workflow pid...' % (proc_pid))
 
 	# save workflow pid
@@ -139,7 +138,7 @@ async def launch_async(db, workflow, attempt, workflow_dir, output_dir, resume):
 	if exit_code == 0:
 		print('%d: workflow completed' % (proc_pid))
 		await set_property(db, workflow, 'status', 'completed') # re-updated the previous updating in the "server.py" methods
-	elif exit_code < 0:
+	elif exit_code == -signal.SIGKILL:
 		print('%d: workflow canceled (terminated by signal %d)' % (proc_pid, exit_code))
 		await set_property(db, workflow, 'status', 'canceled') # re-updated the previous updating in the "server.py" methods
 		return # return to don't save the data
@@ -168,11 +167,74 @@ def launch(db, workflow, attempt, workflow_dir, output_dir, resume):
 
 
 
+def kill_process_tree(pid, sig=signal.SIGTERM, include_parent=True, timeout=None):
+	# get parent and children from pid
+	try:
+		parent = psutil.Process(pid)
+	except psutil.NoSuchProcess:
+		return
+	children = parent.children(recursive=True)
+
+	# send inital signal for children
+	for child in children:
+		try:
+			child.send_signal(sig)
+		except psutil.NoSuchProcess:
+			pass
+
+	gone, alive = psutil.wait_procs(children, timeout=timeout)
+
+	# send initial signal for parent
+	if include_parent:
+		try:
+			parent.send_signal(sig)
+		except psutil.NoSuchProcess:
+			pass
+
+# def kill_process_tree(pid, sig=signal.SIGTERM, include_parent=True, timeout=3, kill_after_timeout=True):
+# 	try:
+# 		parent = psutil.Process(pid)
+# 	except psutil.NoSuchProcess:
+# 		return
+# 	children = parent.children(recursive=True)
+
+# 	# send initial signal (e.g. SIGINT or SIGTERM)
+# 	for p in children:
+# 		try:
+# 			p.send_signal(sig)
+# 		except psutil.NoSuchProcess:
+# 			pass
+
+# 	if include_parent:
+# 		try:
+# 			parent.send_signal(sig)
+# 		except psutil.NoSuchProcess:
+# 			pass
+
+# 	# wait for processes to terminate (prevents zombies)
+# 	gone, alive = psutil.wait_procs(children, timeout=timeout)
+
+# 	if include_parent:
+# 		gone2, alive2 = psutil.wait_procs([parent], timeout=timeout)
+# 		gone += gone2
+# 		alive += alive2
+
+# 	# if still alive and requested, force kill
+# 	if kill_after_timeout:
+# 		for p in alive:
+# 			try:
+# 				p.kill()
+# 			except psutil.NoSuchProcess:
+# 				pass
+# 		psutil.wait_procs(alive, timeout=timeout)
+
+
+
 def cancel(workflow):
 	# terminate child process
 	if workflow['pid'] != -1:
 		try:
-			os.kill(workflow['pid'], signal.SIGKILL)
+			kill_process_tree(workflow['pid'], sig=signal.SIGKILL)
 		except ProcessLookupError:
 			pass
 
