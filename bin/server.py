@@ -1217,10 +1217,10 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 	])
 
 	DEFAULTS = {
-		'inputs': []
+		'inputs': [],
+		'resume': False
 	}
 
-	resume = True
 
 	@role_required([])
 	async def post(self, id):
@@ -1260,9 +1260,15 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			# update workflow from request body
 			workflow = await db.workflow_get(id)
 
+			# update data from request body
+			data = {**self.DEFAULTS, **data}
+
 			# update workflow status
 			workflow['status'] = 'running'
 			workflow['n_attempts'] += 1
+
+			# set up the workflow directory
+			workflow_dir = os.path.join(env.WORKFLOWS_DIR, id)
 
 			# set up the attempt directory
 			attempt_dir = os.path.join(id, str(workflow['n_attempts']))
@@ -1270,6 +1276,7 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			# update attempt execution
 			attempt = {
 				'id': workflow['n_attempts'],
+				'description': data['description'],
 				'inputs': data['inputs'],
 				'date_submitted': int(time.time() * 1000),
 				'status': 'running',
@@ -1280,7 +1287,6 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			await db.workflow_update(id, workflow)
 
 			# copy nextflow.config from nextflow configuration folder
-			workflow_dir = os.path.join(env.WORKFLOWS_DIR, attempt_dir)
 			os.makedirs(workflow_dir, exist_ok=True)
 			src = os.path.join(env.NXF_CONF, 'nextflow.config')
 			dst = os.path.join(workflow_dir, 'nextflow.config')
@@ -1302,7 +1308,7 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			os.makedirs(output_dir, exist_ok=True)
 
 			# launch workflow as a child process
-			p = mp.Process(target=Workflow.launch, args=(db, workflow, attempt, workflow_dir, output_dir, self.resume))
+			p = mp.Process(target=Workflow.launch, args=(db, workflow, attempt, workflow_dir, output_dir, data['resume']))
 			p.start()
 
 			self.set_status(200)
@@ -1311,12 +1317,6 @@ class WorkflowLaunchHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			log_exception(e)
 			self.set_status(404)
 			self.write(message(404, 'Failed to launch workflow \"%s\"' % id))
-
-
-
-class WorkflowResumeHandler(WorkflowLaunchHandler):
-
-	resume = True
 
 
 
@@ -1369,11 +1369,12 @@ class WorkflowLogHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			attempt = workflow['attempts'][n_attempt]
 
 			# get append data if it exists
-			log_file = os.path.join(env.WORKFLOWS_DIR, attempt['output_dir'], '.workflow.log')
+			log_file = os.path.join(env.OUTPUTS_DIR, attempt['output_dir'], '.workflow.log')
 			if os.path.exists(log_file):
 				f = open(log_file)
 				log = ''.join(f.readlines())
 				# get the attempt data
+				description = attempt['description']
 				status = attempt['status']
 				date_submitted = attempt['date_submitted']
 			else:
@@ -1385,6 +1386,7 @@ class WorkflowLogHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			data = {
 				'_id': id,
 				'attempt': attempt_id,
+				'description': description,
 				'status': status,
 				'date_submitted': date_submitted,
 				'log': log
@@ -1681,15 +1683,15 @@ class TaskQueryHandler(CORSMixin, tornado.web.RequestHandler):
 				# get last attempt because has to be the running one
 				n_attempt = int(workflow['n_attempts'] - 1)
 
-				# update workflow status
-				success = task['metadata']['workflow']['success']
-				if success:
-					workflow['status'] = 'completed'
-					workflow['attempts'][n_attempt]['status'] = 'completed'
+				# # update workflow status
+				# success = task['metadata']['workflow']['success']
+				# if success:
+				# 	workflow['status'] = 'completed'
+				# 	workflow['attempts'][n_attempt]['status'] = 'completed'
 
-				else:
-					workflow['status'] = 'failed'
-					workflow['attempts'][n_attempt]['status'] = 'failed'
+				# else:
+				# 	workflow['status'] = 'failed'
+				# 	workflow['attempts'][n_attempt]['status'] = 'failed'
 
 				await db.workflow_update(workflow['_id'], workflow)
 
@@ -2087,7 +2089,6 @@ if __name__ == '__main__':
 		(r'/api/workflows/0', WorkflowCreateHandler),
 		(r'/api/workflows/([a-zA-Z0-9-]+)', WorkflowEditHandler),
 		(r'/api/workflows/([a-zA-Z0-9-]+)/launch', WorkflowLaunchHandler),
-		(r'/api/workflows/([a-zA-Z0-9-]+)/resume', WorkflowResumeHandler),
 		(r'/api/workflows/([a-zA-Z0-9-]+)/cancel', WorkflowCancelHandler),
 		(r'/api/workflows/([a-zA-Z0-9-]+)/([0-9]+)/log', WorkflowLogHandler),
 		# (r'/api/workflows/([a-zA-Z0-9-]+)/download', WorkflowDownloadHandler, dict(path=env.WORKFLOWS_DIR)),

@@ -27,7 +27,7 @@ def run_workflow(workflow, attempt, workflow_dir, output_dir, resume):
 	if env.NXF_EXECUTOR == 'k8s':
 		args = [
 			'nextflow',
-			'-log', os.path.join(workflow_dir, 'nextflow.log'),
+			'-log', os.path.join(output_dir, 'logs', 'nextflow.log'),
 			'kuberun',
 			workflow['pipeline'],
 			'-ansi-log', 'false',
@@ -35,32 +35,35 @@ def run_workflow(workflow, attempt, workflow_dir, output_dir, resume):
 			'-name', run_name,
 			'-profile', workflow['profiles'],
 			'-revision', workflow['revision'],
+			'-work-dir', workflow_dir,
 			'-volume-mount', env.PVC_NAME
 		]
 
 	elif env.NXF_EXECUTOR == 'pbspro':
 		args = [
 			'nextflow',
-			'-log', os.path.join(workflow_dir, 'nextflow.log'),
+			'-log', os.path.join(output_dir, 'logs', 'nextflow.log'),
 			'run',
 			workflow['pipeline'],
 			'-ansi-log', 'false',
 			'-latest',
 			'-name', run_name,
 			'-profile', workflow['profiles'],
+			'-work-dir', workflow_dir,
 			'-revision', workflow['revision']
 		]
 
 	elif env.NXF_EXECUTOR == 'local':
 		args = [
 			'nextflow',
-			'-log', os.path.join(workflow_dir, 'nextflow.log'),
+			'-log', os.path.join(output_dir, 'logs', 'nextflow.log'),
 			'run',
 			workflow['pipeline'],
 			'-revision', workflow['revision'],
 			'-latest',
 			'-name', run_name,
 			'-profile', workflow['profiles'],
+			'-work-dir', workflow_dir,
 			'-ansi-log', 'false'
 		]
 
@@ -80,10 +83,12 @@ def run_workflow(workflow, attempt, workflow_dir, output_dir, resume):
 	if resume:
 		args += ['-resume']
 
+	print(args)
+
 	# launch workflow asynchronously
 	proc = subprocess.Popen(
 		args,
-		stdout=open('.workflow.log', 'w'),
+		stdout=open(os.path.join(output_dir, '.workflow.log'), 'w'),
 		stderr=subprocess.STDOUT
 	)
 
@@ -130,11 +135,16 @@ async def launch_async(db, workflow, attempt, workflow_dir, output_dir, resume):
 	print('%d: waiting for workflow to finish...' % (proc_pid))
 
 	# wait for workflow to complete
-	if proc.wait() == 0:
+	exit_code = proc.wait()
+	if exit_code == 0:
 		print('%d: workflow completed' % (proc_pid))
 		await set_property(db, workflow, 'status', 'completed') # re-updated the previous updating in the "server.py" methods
+	elif exit_code < 0:
+		print('%d: workflow canceled (terminated by signal %d)' % (proc_pid, exit_code))
+		await set_property(db, workflow, 'status', 'canceled') # re-updated the previous updating in the "server.py" methods
+		return # return to don't save the data
 	else:
-		print('%d: workflow failed' % (proc_pid))
+		print('%d: workflow failed (terminated by signal %d)' % (proc_pid, exit_code))
 		await set_property(db, workflow, 'status', 'failed') # re-updated the previous updating in the "server.py" methods
 		return # return to don't save the data
 
@@ -162,7 +172,7 @@ def cancel(workflow):
 	# terminate child process
 	if workflow['pid'] != -1:
 		try:
-			os.kill(workflow['pid'], signal.SIGINT)
+			os.kill(workflow['pid'], signal.SIGKILL)
 		except ProcessLookupError:
 			pass
 
