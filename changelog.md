@@ -1,8 +1,25 @@
 ___
+## 1.5
+
+### Date 📅 *2025_04*
+
+### Changes in detail
+
++ An output directory named 'outspace' is used to store the workflow result files.
++ The archive is now a ZIP file instead of a TAR.GZ file.
++ Extend the user session duration.
++ Identify symbolic links that point to directories, and update the corresponding subdirectories and filenames.
++ Reduce the number of deleted files, ensuring the count does not drop below zero.
++ Move the Nextflow cache into the workflow directories.
++ Include attempt descriptions in the log report for easier tracking.
++ Apply the necessary changes to **resume execution**.
++ Cancel ongoing Nextflow executions.
++ Relocate the Nextflow and workflow log files.
+
+___
 ## 1.4
-```
-DATE: 2024_12
-```
+
+### Date 📅 *2024_12*
 
 ### Changes in detail
 
