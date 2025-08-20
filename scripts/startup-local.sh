@@ -24,6 +24,5 @@ export TF_CPP_MIN_LOG_LEVEL="3"
 # ${HOME_DIR}/bin/server.py --backend=${BACKEND}
 
 # start server with remote mongodb
-MONGODB_PORT=27017
 echo "** ${HOME_DIR}/bin/server.py --backend=${BACKEND} --url-mongo=mongodb://${MONGODB_USER}:XXX@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DB}?authSource=admin"
 ${HOME_DIR}/bin/server.py --backend=${BACKEND} --url-mongo=mongodb://${MONGODB_USER}:${MONGODB_PWD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DB}?authSource=admin
