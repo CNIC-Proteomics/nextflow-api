@@ -36,7 +36,7 @@ OUTPUTS_DIR = os.path.join(BASE_DIR['outspace'], '_outputs')
 # Backend-Frontend: Access-Control-Allow-Origin -----
 PORT_CORE = int(os.environ.get('PORT_CORE', 8080))
 PORT_APP = int(os.environ.get('PORT_APP', 3000))
-HOST_IP = os.environ.get('HOST_IP')
+HOST_NAME = os.environ.get('HOST_NAME')
 
 # create HOST list for the cross-reference
 CORS_HOSTS = [f"http://localhost:{PORT_APP}"]
@@ -52,8 +52,8 @@ def is_valid_host(host_str):
 	# define a regex for valid hostnames (RFC 1035)
 	hostname_regex = re.compile(r'^(?!-)[A-Za-z0-9.-]{1,253}(?<!-)$')
 	return bool(hostname_regex.match(host_str))
-if HOST_IP is not None and is_valid_host(HOST_IP):
-	CORS_HOSTS.append(f"http://{HOST_IP}:{PORT_APP}")
+if HOST_NAME is not None and is_valid_host(HOST_NAME):
+	CORS_HOSTS.append(f"http://{HOST_NAME}:{PORT_APP}")
 print(f'** CORS: {CORS_HOSTS}')
 
 
