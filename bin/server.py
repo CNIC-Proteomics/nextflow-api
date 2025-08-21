@@ -661,6 +661,9 @@ class DatasetCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 			# append the current user id
 			dataset['user_id'] = self.current_user['_id']
 
+			# append the server name
+			dataset['host_name'] = env.HOST_NAME
+
 			# save dataset
 			await db.dataset_create(dataset)
 
@@ -1095,6 +1098,9 @@ class WorkflowCreateHandler(CORSAuthMixin, tornado.web.RequestHandler):
 
 			# append the current user id
 			workflow['user_id'] = self.current_user['_id']
+
+			# append the server name
+			workflow['host_name'] = env.HOST_NAME
 
 			# save workflow
 			await db.workflow_create(workflow)
