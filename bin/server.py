@@ -1565,8 +1565,11 @@ class OutputArchiveDownloadHandler(CORSAuthMixin, tornado.web.StaticFileHandler)
 		filename = self.get_query_argument('path', filename_default)
 
 		# set up the output from the attempt directory and filename
-		self.set_header('content-disposition', 'attachment; filename=\"%s\"' % filename)
-		output = os.path.join(env.OUTPUTS_DIR, id, filename)
+		self.set_header("Content-Type", "application/zip")
+		self.set_header("Content-Disposition", 'attachment; filename=\"%s\"' % filename)
+
+		# return a relative path (relative to env.OUTPUTS_DIR provided in the Application route)
+		output = os.path.join(id, filename)
 		return output
 	
 
@@ -2102,7 +2105,7 @@ if __name__ == '__main__':
 		(r'/api/outputs/([a-zA-Z0-9-]+)/([0-9]+)', OutputEditHandler),
 		(r'/api/outputs/single/(.+)/download', OutputDownloadHandler, dict(path=env.BASE_DIR['workspace'])),
 		(r'/api/outputs/multiple/([a-zA-Z0-9-]+)/([0-9]+)/download', OutputMultipleDownloadHandler),
-		(r'/api/outputs/archive/(.+)/download', OutputArchiveDownloadHandler, dict(path=env.WORKFLOWS_DIR)),
+		(r'/api/outputs/archive/(.+)/download', OutputArchiveDownloadHandler, dict(path=env.OUTPUTS_DIR)),
 
 		(r'/api/volumes/?(.*)', VolumeQueryHandler),
 
